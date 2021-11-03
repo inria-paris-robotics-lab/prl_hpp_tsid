@@ -1,0 +1,1 @@
+This package make the bridge between the robot ROS interfaces and the concept of a robot for pinocchio.

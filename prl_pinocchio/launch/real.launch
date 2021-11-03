@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- start robot simulation -->
+    <include file="$(find prl_ur5_run)/launch/real.launch">
+        <arg name="moveit" value="False"/>
+        <arg name="velocity_control" value="True"/>
+    </include>
+
+    <!-- Load URDF/SRDF -->
+    <include file="$(find prl_pinocchio)/launch/upload.launch">
+</launch>

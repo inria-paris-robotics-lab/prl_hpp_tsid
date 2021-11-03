@@ -54,9 +54,23 @@ class Robot:
             pin_index = ros_joint_names.index(name)
             self._lookup_pin_to_ros.append(pin_index)
 
-    def _rearrange_ros_to_pin(self, q):
-        # q can be q, v or tau --> normally v and tau cannot !!
-        return [q[self._lookup_pin_to_ros[i]] for i in range(len(q))]
+    def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
+        # TODO: If joints makes nq != nv what to do ?!!
+        res  = []
+
+        if q != None:
+            q_res = [q[self._lookup_pin_to_ros[i]] for i in range(len(q))]
+            res.append(q_res)
+        
+        if v != None:
+            v_res = [v[self._lookup_pin_to_ros[i]] for i in range(len(v))]
+            res.append(v_res)
+
+        if tau != None:
+            tau_res = [tau[self._lookup_pin_to_ros[i]] for i in range(len(tau))]
+            res.append(tau_res)
+
+        return res
 
     def get_urdf_explicit(self):
         return self._urdfStringExplicit
@@ -110,9 +124,7 @@ class Robot:
         v = list(joints_state.velocity)
         tau = list(joints_state.effort)
 
-        q = self._rearrange_ros_to_pin(q)
-        v = self._rearrange_ros_to_pin(v)
-        tau = self._rearrange_ros_to_pin(tau)
+        q, v, tau = self._rearrange_ros_to_pin(q=q, v=v, tau=tau)
 
         if not raw:
             for i, pos in enumerate(q):

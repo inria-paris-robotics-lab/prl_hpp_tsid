@@ -197,7 +197,7 @@ class Robot:
             AssertionError: If jointName is not in the robot model.
         """
         if(q==None):
-            q = self.getCurrentConfig()
+            q = self.get_meas_q()
 
         q = numpy.matrix(q).T
 

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+  <param name="prl_ur5_description/urdf" command="
+    $(find xacro)/xacro '$(find prl_ur5_description)/urdf/prl_ur5_robot.urdf.xacro'
+    setup:=standart_setup
+    table:=true
+    backwall:=true
+  "/>
+
+<param name="prl_ur5_description/srdf" command="cat $(find prl_hpp)/urdf_srdf/prl_ur5_robot.srdf"/>
+</launch>

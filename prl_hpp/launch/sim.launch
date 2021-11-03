@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- start robot simulation -->
+    <include file="$(find prl_ur5_run)/launch/sim.launch">
+        <arg name="moveit" value="False"/>
+        <arg name="velocity_control" value="True"/>
+    </include>
+
+    <!-- Load URDF/SRDF -->
+    <param name="prl_ur5_description/urdf" command="
+        $(find xacro)/xacro '$(find prl_ur5_description)/urdf/prl_ur5_robot.urdf.xacro'
+        setup:=standart_setup
+        table:=true
+        backwall:=true
+      "/>
+
+    <param name="prl_ur5_description/srdf" command="cat $(find prl_hpp)/urdf_srdf/prl_ur5_robot.srdf"/>
+
+    <!-- Launch display and corba server for HPP -->
+    <node pkg="prl_hpp" type="run_cmd_infinite.sh" name="gepettogui" args="gepetto-gui" output="screen"/>
+    <node pkg="prl_hpp" type="run_cmd_infinite.sh" name="hppcorbaserver" args="hppcorbaserver" output="screen"/>
+</launch>

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>prl_hpp_tsid</name>
+  <version>0.1.0</version>
+  <description>prl_hpp_tsid is a metapackage for using open-source tools to control the prl robots.</description>
+
+  <maintainer email="etienne.arlaud@inria.fr">Etienne Arlaud</maintainer>
+  <author email="etienne.arlaud@inria.fr">Etienne Arlaud</author>
+
+  <license>MIT</license>
+
+  <!-- <url type="repository">https://github.com/inria-paris-robotic-lab/prl_hpp_tsid</url>
+  <url type="bugtracker">https://github.com/inria-paris-robotic-lab/prl_hpp_tsid/issues</url> -->
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>prl_hpp</exec_depend>
+  <exec_depend>prl_tsid</exec_depend>
+  <exec_depend>prl_pinocchio</exec_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>

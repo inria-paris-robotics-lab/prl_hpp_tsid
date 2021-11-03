@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<robot name="prl_ur5_robot\">
+<!-- Pick and place -->
+  <!-- Grippers -->
+  <gripper name="l_gripper" clearance="0">
+      <position> 0 0 0 0.5 -0.5 -0.5 -0.5 </position>
+      <link name="left_gripper_grasp_frame" />
+  </gripper>
+
+  <gripper name="r_gripper" clearance="0">
+      <position> 0 0 0 0.5 -0.5 -0.5 -0.5 </position>
+      <link name="right_gripper_grasp_frame" />
+  </gripper>
+
+<!-- Collisions -->
+  <!-- Left Arm -->
+      <disable_collisions link1="left_upper_arm_link" link2="left_forearm_link"/>
+
+  <!--Left Gripper -->
+      <!-- Finger 1 -->
+      <disable_collisions link1="left_gripper_body" link2="left_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="left_gripper_body" link2="left_gripper_finger_1_truss_arm"/>
+
+      <disable_collisions link1="left_gripper_finger_1_truss_arm" link2="left_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="left_gripper_finger_2_truss_arm" link2="left_gripper_finger_2_moment_arm"/>
+
+
+    <disable_collisions link1="right_gripper_finger_1_truss_arm" link2="right_gripper_finger_1_moment_arm"/>
+    <disable_collisions link1="right_gripper_finger_2_truss_arm" link2="right_gripper_finger_2_moment_arm"/>
+
+      <disable_collisions link1="left_gripper_finger_1_safety_shield" link2="left_gripper_body"/>
+      <disable_collisions link1="left_gripper_finger_1_safety_shield" link2="left_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="left_gripper_finger_1_safety_shield" link2="left_gripper_finger_1_truss_arm"/>
+      <disable_collisions link1="left_gripper_finger_1_safety_shield" link2="left_gripper_finger_1_finger_tip"/>
+
+      <disable_collisions link1="left_gripper_finger_1_finger_tip" link2="left_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="left_gripper_finger_1_finger_tip" link2="left_gripper_finger_1_truss_arm"/>
+      <disable_collisions link1="left_gripper_finger_1_finger_tip" link2="left_gripper_finger_1_flex_finger"/>
+
+      <!-- Finger 2 -->
+      <disable_collisions link1="left_gripper_body" link2="left_gripper_finger_2_moment_arm"/>
+      <disable_collisions link1="left_gripper_body" link2="left_gripper_finger_2_truss_arm"/>
+
+      <disable_collisions link1="left_gripper_finger_2_safety_shield" link2="left_gripper_body"/>
+      <disable_collisions link1="left_gripper_finger_2_safety_shield" link2="left_gripper_finger_2_moment_arm"/>
+      <disable_collisions link1="left_gripper_finger_2_safety_shield" link2="left_gripper_finger_2_truss_arm"/>
+      <disable_collisions link1="left_gripper_finger_2_safety_shield" link2="left_gripper_finger_2_finger_tip"/>
+
+      <disable_collisions link1="left_gripper_finger_2_finger_tip" link2="left_gripper_finger_2_moment_arm"/>
+      <disable_collisions link1="left_gripper_finger_2_finger_tip" link2="left_gripper_finger_2_truss_arm"/>
+      <disable_collisions link1="left_gripper_finger_2_finger_tip" link2="left_gripper_finger_2_flex_finger"/>
+
+      <!-- Fingers closed -->
+      <disable_collisions link1="left_gripper_finger_1_finger_tip" link2="left_gripper_finger_2_flex_finger"/>
+      <disable_collisions link1="left_gripper_finger_1_finger_tip" link2="left_gripper_finger_2_finger_tip"/>
+      <disable_collisions link1="left_gripper_finger_1_flex_finger" link2="left_gripper_finger_2_flex_finger"/>
+      <disable_collisions link1="left_gripper_finger_1_flex_finger" link2="left_gripper_finger_2_finger_tip"/>
+
+  <!-- Right Arm -->
+      <disable_collisions link1="right_upper_arm_link" link2="right_forearm_link"/>
+
+  <!-- Right Gripper -->
+      <!-- Finger 1 -->
+      <disable_collisions link1="right_gripper_body" link2="right_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="right_gripper_body" link2="right_gripper_finger_1_truss_arm"/>
+
+      <disable_collisions link1="right_gripper_finger_1_finger_tip" link2="right_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="right_gripper_finger_1_finger_tip" link2="right_gripper_finger_1_truss_arm"/>
+      <disable_collisions link1="right_gripper_finger_1_finger_tip" link2="right_gripper_finger_1_flex_finger"/>
+
+      <!-- Finger 2 -->
+      <disable_collisions link1="right_gripper_body" link2="right_gripper_finger_2_moment_arm"/>
+      <disable_collisions link1="right_gripper_body" link2="right_gripper_finger_2_truss_arm"/>
+
+      <disable_collisions link1="right_gripper_finger_2_finger_tip" link2="right_gripper_finger_2_moment_arm"/>
+      <disable_collisions link1="right_gripper_finger_2_finger_tip" link2="right_gripper_finger_2_truss_arm"/>
+      <disable_collisions link1="right_gripper_finger_2_finger_tip" link2="right_gripper_finger_2_flex_finger"/>
+
+      <!-- Fingers closed -->
+      <disable_collisions link1="right_gripper_finger_1_finger_tip" link2="right_gripper_finger_2_flex_finger"/>
+      <disable_collisions link1="right_gripper_finger_1_finger_tip" link2="right_gripper_finger_2_finger_tip"/>
+      <disable_collisions link1="right_gripper_finger_1_flex_finger" link2="right_gripper_finger_2_flex_finger"/>
+      <disable_collisions link1="right_gripper_finger_1_flex_finger" link2="right_gripper_finger_2_finger_tip"/>
+
+      <!-- Wrist -->
+      <disable_collisions link1="right_wrist_2_link" link2="right_wrist_3_link"/>
+
+      <!-- Camera -->
+      <disable_collisions link1="right_camera_link" link2="right_gripper_body"/>
+      <disable_collisions link1="right_camera_link" link2="right_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="right_camera_link" link2="right_gripper_finger_2_moment_arm"/>
+      <disable_collisions link1="right_camera_link" link2="right_gripper_finger_1_truss_arm"/>
+      <disable_collisions link1="right_camera_link" link2="right_gripper_finger_2_truss_arm"/>
+
+
+
+</robot>

@@ -7,5 +7,5 @@
     </include>
 
     <!-- Load URDF/SRDF -->
-    <include file="$(find prl_pinocchio)/launch/upload.launch">
+    <include file="$(find prl_pinocchio)/launch/upload.launch"/>
 </launch>

@@ -41,33 +41,72 @@ class Robot:
 
         # Make a lookup table to change between ros joint index and pinocchio joint index (using joints names)
         # The input/output of this class will always be according to pinocchio joint order
-        ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
-        pin_joint_names = list(self.pin_model.names[1:]) # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
+        self._ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
+        self._pin_joint_names = list(self.pin_model.names[1:]) # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
 
-        self._lookup_ros_to_pin = []
-        for name in ros_joint_names:
-            pin_index = pin_joint_names.index(name)
-            self._lookup_ros_to_pin.append(pin_index)
+        # enumerate all the DoF and group them by joint
+        index = 0
+        q_pin_to_pin = []
+        for joint in self.pin_model.joints:
+            joint_indexes = []
+            for i in range(joint.nq):
+                joint_indexes.append(index)
+                index+=1
+            q_pin_to_pin.append(joint_indexes)
+        # rearrange joints
+        q_ros_to_pin = []
+        for ros_index, name in enumerate(self._ros_joint_names):
+            pin_index = self._pin_joint_names.index(name)
+            q_ros_to_pin.append(q_pin_to_pin[pin_index])
+        # Flatten the list of list into a simple list
+        self._q_ros_to_pin = []
+        for indexes in q_ros_to_pin:
+            self._q_ros_to_pin.extend(indexes)
+        # Take the inverse of the bijection
+        self._q_pin_to_ros = []
+        for pin_index in range(len(self._q_ros_to_pin)):
+            ros_index = self._q_ros_to_pin.index(pin_index)
+            self._q_pin_to_ros.append(ros_index)
 
-        self._lookup_pin_to_ros = []
-        for name in pin_joint_names:
-            pin_index = ros_joint_names.index(name)
-            self._lookup_pin_to_ros.append(pin_index)
+        # re-do all of the previous for v (instead of q)
+        # enumerate all the DoF and group them by joint
+        index = 0
+        v_pin_to_pin = []
+        for joint in self.pin_model.joints:
+            joint_indexes = []
+            for i in range(joint.nv):
+                joint_indexes.append(index)
+                index+=1
+            v_pin_to_pin.append(joint_indexes)
+        # rearrange joints
+        v_ros_to_pin = []
+        for ros_index, name in enumerate(self._ros_joint_names):
+            pin_index = self._pin_joint_names.index(name)
+            v_ros_to_pin.append(v_pin_to_pin[pin_index])
+        # Flatten the list of list into a simple list
+        self._v_ros_to_pin = []
+        for indexes in v_ros_to_pin:
+            self._v_ros_to_pin.extend(indexes)
+        # Take the inverse of the bijection
+        self._v_pin_to_ros = []
+        for pin_index in range(len(self._v_ros_to_pin)):
+            ros_index = self._v_ros_to_pin.index(pin_index)
+            self._v_pin_to_ros.append(ros_index)
+
 
     def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
-        # TODO: If joints makes nq != nv what to do ?!!
         res  = []
 
         if q != None:
-            q_res = [q[self._lookup_pin_to_ros[i]] for i in range(len(q))]
+            q_res = [q[self._q_pin_to_ros[i]] for i in range(len(v))]
             res.append(q_res)
         
         if v != None:
-            v_res = [v[self._lookup_pin_to_ros[i]] for i in range(len(v))]
+            v_res = [v[self._v_pin_to_ros[i]] for i in range(len(v))]
             res.append(v_res)
 
         if tau != None:
-            tau_res = [tau[self._lookup_pin_to_ros[i]] for i in range(len(tau))]
+            tau_res = [tau[self._v_pin_to_ros[i]] for i in range(len(tau))]
             res.append(tau_res)
 
         return res
@@ -179,7 +218,7 @@ class Robot:
         -------
             jointNames (str[]): List of the names
         """
-        return list(self.pin_model.names[1:])
+        return list(self._pin_joint_names)
 
     def is_at_config(self, q, threshold=0.1):
         """

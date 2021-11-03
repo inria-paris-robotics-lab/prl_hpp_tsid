@@ -9,8 +9,8 @@ from prl_hpp.tools.utils import compare_configurations, wd
 from prl_hpp.tools.instate_planner import InStatePlanner
 
 from prl_hpp.tools.hpp_robots import TargetRobotStrings
+from prl_hpp.tools.hpp_robots import HppRobot
 from pinocchio import XYZQUATToSE3, SE3ToXYZQUATtuple
-import rospy
 
 # import os
 # loadServerPlugin ("corbaserver", os.environ.get('CONDA_PREFIX')+"/lib/hppPlugins/manipulation-corba.so")
@@ -35,10 +35,11 @@ class Planner:
             robot (Robot): Associated Robot class. (see robot.py)
         """
         self.robot = robot
+        self.hpp_robot = HppRobot(robot.pin_model.name, "robot", robot.get_urdf_explicit(), robot.get_srdf_explicit())
 
         # Problem
-        self.ps = ProblemSolver(self.robot.hpp_robot)
-        self.graph = robot.hpp_robot.client.manipulation.graph
+        self.ps = ProblemSolver(self.hpp_robot)
+        self.graph = self.hpp_robot.client.manipulation.graph
 
         # Viewer
         self.vf = ViewerFactory(self.ps)
@@ -80,7 +81,7 @@ class Planner:
 
         # get locked joint values from current configuration
         if jointValues == None:
-            all_names = self.robot.get_joint_names(with_prefix = False)
+            all_names = self.robot.get_joint_names()
             q_current = self.robot.get_meas_q()
             jointValues = []
             for j_name in jointNames:
@@ -89,7 +90,7 @@ class Planner:
 
         # Create the constraints
         for i in range(len(jointNames)):
-            self.ps.createLockedJoint(constraintNames[i], self.robot.robotName + "/" + jointNames[i], [jointValues[i]])
+            self.ps.createLockedJoint(constraintNames[i], "robot/" + jointNames[i], [jointValues[i]])
 
         self.ps.addLockedJointConstraints(lockName, constraintNames)
 
@@ -128,7 +129,7 @@ class Planner:
         orientation = Planner._convert_orientation(orientation)
 
         self._reset_problem()
-        gripperFullname = self.robot.robotName + "/" + gripperName
+        gripperFullname = "robot/" + gripperName
 
         # Create the approach object target
         self._create_target("target", approach_distance)
@@ -146,7 +147,7 @@ class Planner:
         # Generate pair goal configuration (pre-graps, grasp)
         q_goals = []
         for _ in range(100):
-            q = self.robot.hpp_robot.shootRandomConfig()
+            q = self.hpp_robot.shootRandomConfig()
             res_pre, q_pre, error_pre = cg.generateTargetConfig(gripperFullname + ' > target/handle | f_01', q_init, q)
             res_grasp, q_grasp, error_grasp = cg.generateTargetConfig(gripperFullname + ' > target/handle | f_12', q_pre, q_pre)
             if(res_pre and res_grasp):
@@ -189,7 +190,7 @@ class Planner:
         path.deleteThis()
 
         # return path
-        return Path(paramPathId, paramPath, self.robot.get_joint_names(with_prefix = False))
+        return Path(paramPathId, paramPath, self.robot.get_joint_names())
 
     def set_velocity_limit(self, scale):
         """
@@ -252,7 +253,7 @@ class Planner:
         pose_place = sum(pose_place, [])
 
         self._reset_problem()
-        gripperFullname = self.robot.robotName + "/" + gripperName
+        gripperFullname = "robot/" + gripperName
 
         # Create the approach object target
         self._create_target("target", approach_distance)
@@ -312,9 +313,9 @@ class Planner:
         param_home_path = wd(self.ps.hppcorba.problem.getPath(param_home_pathId))
 
         # return paths
-        return  Path(param_pick_pathId, param_pick_path, self.robot.get_joint_names(with_prefix = False)), \
-                Path(param_place_pathId, param_place_path, self.robot.get_joint_names(with_prefix = False)), \
-                Path(param_home_pathId, param_home_path, self.robot.get_joint_names(with_prefix = False))
+        return  Path(param_pick_pathId, param_pick_path, self.robot.get_joint_names()), \
+                Path(param_place_pathId, param_place_path, self.robot.get_joint_names()), \
+                Path(param_home_pathId, param_home_path, self.robot.get_joint_names())
 
 
     def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4):
@@ -324,7 +325,7 @@ class Planner:
         self.v.loadRobotModelFromString(targetName, 'freeflyer', target.urdf, target.srdf)
 
         # Bound the pickTarget pose around the desired pose
-        self.robot.hpp_robot.setJointBounds (targetName + '/root_joint', bounds)
+        self.hpp_robot.setJointBounds (targetName + '/root_joint', bounds)
 
         # Re-create the viewer with the target
         self.v = self.vf.createViewer()
@@ -336,7 +337,7 @@ class Planner:
         except Error:
             pass
         # self.ps.clearRoadmap()
-        self.robot.reset()
+        self.hpp_robot.__init__(self.robot.pin_model.name, "robot", self.robot.get_urdf_explicit(), self.robot.get_srdf_explicit())
         self.ps.resetGoalConfigs()
 
     def _timeParametrizePath(self, pathId):
@@ -367,7 +368,7 @@ class Planner:
         return pathId
 
     def _create_simple_cg(self, grippers, targets, targets_handles, validate):
-        cg = ConstraintGraph (self.robot.hpp_robot, 'graph')
+        cg = ConstraintGraph (self.hpp_robot, 'graph')
         factory = ConstraintGraphFactory (cg)
         factory.setGrippers (grippers)
         factory.setObjects (targets, targets_handles, [[]*len(targets)])

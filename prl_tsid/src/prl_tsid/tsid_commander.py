@@ -18,7 +18,7 @@ class Commander:
         """
         self.commandedJointsName = commandedJointsName
         self.robot = robot
-        self.commandedJointsIndex = self._getJointIndexes(commandedJointsName, self.robot.get_joint_names(with_prefix= False))
+        self.commandedJointsIndex = self._getJointIndexes(commandedJointsName, self.robot.get_joint_names())
 
         rospy.logwarn("Commaner got joints names" + str(self.commandedJointsName))
         rospy.logwarn("Commander got joints index : " + str(self.commandedJointsIndex))

@@ -43,7 +43,7 @@ class Commander:
         """
         # Find indexes of the commanded joints in the path
         commandJoints = self._get_joint_indexes(self.jointsName, path.jointList)
-        robotJoints = self._get_joint_indexes(self.robot.get_joint_names(with_prefix= False), path.jointList)
+        robotJoints = self._get_joint_indexes(self.robot.get_joint_names(), path.jointList)
 
         def filterJoints(q_in, joints = commandJoints): # Small function to extract only interresting joints from a configuration in path
             q_out = [q_in[index] for index in joints]

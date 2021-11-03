@@ -9,24 +9,60 @@ class Robot:
     """ User friendly Robot class that encapsulate the HppRobot and some ROS functionnality """
     MAX_JOINT_SPEED = 1.0
 
-    def __init__(self, robotName, robot_description_param_prefix, joint_state_topic):
+    def __init__(self, robot_description_param_prefix, joint_state_topic):
         """
         Parameters
         ----------
-            robotName (str): see Humanoid Path Planner documentation.
             robot_description_param_prefix (str): Prefix to get ros parameters 'urdf' and 'srdf' (that contains robot urdf and srdf strings).
             joint_state_topic (str): Topic name to get robot configuration.
         """
+        # Get URDF/SRDF strings from ros parameters
         urdfString = rospy.get_param(robot_description_param_prefix + "/urdf")
         srdfString = rospy.get_param(robot_description_param_prefix + "/srdf")
-        urdfStringExplicit = replace_path_to_absolute(urdfString)
-        srdfStringExplicit = replace_path_to_absolute(srdfString)
+        self._urdfStringExplicit = replace_path_to_absolute(urdfString)
+        self._srdfStringExplicit = replace_path_to_absolute(srdfString)
 
-        self.robotName = robotName
+        # Joint topic from ros
         self.joint_state_topic = joint_state_topic
 
+        # Build pinocchio model
         self.pin_model = pinocchio.buildModelFromXML(urdfString)
         self.pin_data = self.pin_model.createData()
+
+        # # Check that for each ros joint the corresponding pinocchio model joint matches the name and index
+        # ros_joint_names = rospy.wait_for_message(self.joint_state_topic, JointState).name
+        # assert len(ros_joint_names) == len(self.pin_model.names[1:]), \
+        #        F"Error number of joints differ between ROS and pinocchio model : {len(ros_joint_names)} != {len(self.pin_model.names[1:])}"
+        #        # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
+        # for index, name in enumerate(ros_joint_names):
+        #     assert self.pin_model.names[index+1] == name, \
+        #            F"Error while matching ROS and pinocchio model joints at index {index} : joint name {self.pin_model.names[index+1]} differs from {name}."
+        #            # Pinocchio index starts at +1 to take into account the universe joint.
+
+        # Make a lookup table to change between ros joint index and pinocchio joint index (using joints names)
+        # The input/output of this class will always be according to pinocchio joint order
+        ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
+        pin_joint_names = list(self.pin_model.names[1:]) # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
+
+        self._lookup_ros_to_pin = []
+        for name in ros_joint_names:
+            pin_index = pin_joint_names.index(name)
+            self._lookup_ros_to_pin.append(pin_index)
+
+        self._lookup_pin_to_ros = []
+        for name in pin_joint_names:
+            pin_index = ros_joint_names.index(name)
+            self._lookup_pin_to_ros.append(pin_index)
+
+    def _rearrange_ros_to_pin(self, q):
+        # q can be q, v or tau --> normally v and tau cannot !!
+        return [q[self._lookup_pin_to_ros[i]] for i in range(len(q))]
+
+    def get_urdf_explicit(self):
+        return self._urdfStringExplicit
+
+    def get_srdf_explicit(self):
+        return self._srdfStringExplicit
 
     def get_meas_q(self, raw=False):
         """
@@ -74,13 +110,16 @@ class Robot:
         v = list(joints_state.velocity)
         tau = list(joints_state.effort)
 
+        q = self._rearrange_ros_to_pin(q)
+        v = self._rearrange_ros_to_pin(v)
+        tau = self._rearrange_ros_to_pin(tau)
+
         if not raw:
-            q_names = self.get_joint_names()
-            for i, name in enumerate(q_names):
-                bounds = self.hpp_robot.getJointBounds(name)
-                bounded = max(bounds[0], min(bounds[1], q[i])) # Bounds the value
-                assert abs(bounded - q[i]) < 1e-3, "Joint way out of bounds"
-                q[i]=bounded
+            for i, pos in enumerate(q):
+                pos = max(pos, self.pin_model.lowerPositionLimit[i])
+                pos = min(pos, self.pin_model.upperPositionLimit[i])
+                assert abs(pos - q[i]) < 1e-3, F"Joint {i} way out of bounds : {self.pin_model.names[i+1]}"
+                q[i] = pos
         
         return q, v, tau
 
@@ -120,28 +159,15 @@ class Robot:
         xyz_quat = pinocchio.SE3ToXYZQUATtuple(oMf)
         return xyz_quat
 
-    def get_joint_names(self, with_prefix = True):
+    def get_joint_names(self):
         """
         Get the name of every 'actuated' joints.
-
-        Optionnals parameters:
-        ----------------------
-            with_prefix (bool): If set to true, the names will start with '{robotName}/'
 
         Returns
         -------
             jointNames (str[]): List of the names
         """
-        hppJointNames = self.hpp_robot.get_joint_names()
-
-        jointNames = []
-        for jointName in hppJointNames:
-            if(len(jointName.split(self.robotName + "/")) > 1): # Check that this joint belong to the robot
-                if with_prefix:
-                    jointNames.append(jointName)
-                else:
-                    jointNames.append(jointName.split(self.robotName + "/")[1])
-        return jointNames
+        return list(self.pin_model.names[1:])
 
     def is_at_config(self, q, threshold=0.1):
         """

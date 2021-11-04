@@ -49,11 +49,11 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>prl_hpp</build_depend>
+  <build_depend>prl_pinocchio</build_depend>
   <build_depend>rospy</build_depend>
-  <build_export_depend>prl_hpp</build_export_depend>
+  <build_export_depend>prl_pinocchio</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
-  <exec_depend>prl_hpp</exec_depend>
+  <exec_depend>prl_pinocchio</exec_depend>
   <exec_depend>rospy</exec_depend>
 
 

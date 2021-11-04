@@ -20,11 +20,7 @@ class Commander:
         self.robot = robot
         self.commandedJointsIndex = self._getJointIndexes(commandedJointsName, self.robot.get_joint_names())
 
-        rospy.logwarn("Commaner got joints names" + str(self.commandedJointsName))
-        rospy.logwarn("Commander got joints index : " + str(self.commandedJointsIndex))
-
         self.action_client = actionlib.SimpleActionClient(action_name, FollowJointTrajectoryAction)
-        rospy.loginfo("Waiting for action server "  + action_name)
         self.action_client.wait_for_server()
 
     def execute(self, q_next, v_next, dv, dt):

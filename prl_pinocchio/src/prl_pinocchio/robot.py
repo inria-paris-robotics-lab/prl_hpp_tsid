@@ -41,6 +41,7 @@ class Robot:
 
         # Make a lookup table to change between ros joint index and pinocchio joint index (using joints names)
         # The input/output of this class will always be according to pinocchio joint order
+        rospy.loginfo(F"Wait for a JointState message on {self.joint_state_topic}...")
         self._ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
         self._pin_joint_names = list(self.pin_model.names[1:]) # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
 

@@ -1,4 +1,4 @@
 <?xml version="1.0"?>
 <launch>
-    <include file="$(find prl_hpp)/launch/sim.launch" />
+    <include file="$(find prl_pinocchio)/launch/sim.launch" />
 </launch>

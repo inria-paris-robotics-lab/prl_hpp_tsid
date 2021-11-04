@@ -1,4 +1,4 @@
-from prl_tsid.robots.ur5 import tsid, np, rospy, tsid_robot, formulation, ur5_robot, commander_left_arm, commander_right_arm
+from prl_tsid.robots.ur5 import tsid, np, rospy, tsid_robot, formulation, robot, commander_left_arm, commander_right_arm
 import pinocchio as pin
 
 qref = np.array([-1.55687287e+00, -1.56574731e+00, -1.56062175e+00, 2.40284589e-02, 1.61412316e+00, -7.95469352e-01, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.55664212e+00, -1.57508802e+00, 1.56221337e+00, 3.11631454e+00, -1.61955921e+00, 7.73079284e-01, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04])
@@ -20,7 +20,7 @@ solver = tsid.SolverHQuadProgFast("qp solver")
 solver.resize(formulation.nVar, formulation.nEq, formulation.nIn)
 
 
-q, v, _ = ur5_robot.get_meas_qvtau()
+q, v, _ = robot.get_meas_qvtau()
 
 i = 0
 dt = 0.1
@@ -41,7 +41,7 @@ while True:
     postureTask.setReference(samplePosture)
 
     r.sleep()
-    q_meas, v_meas, _ = ur5_robot.get_meas_qvtau(raw = True)
+    q_meas, v_meas, _ = robot.get_meas_qvtau(raw = True)
 
     if(i%10 == 0):
         rospy.logwarn(q)
@@ -57,7 +57,7 @@ while True:
 
     # numerical integration
     v_next = np.array(v_meas + dt*dv_next)
-    q_next = pin.integrate(ur5_robot.pin_model,np.array(q),v_next*dt)
+    q_next = pin.integrate(robot.pin_model,np.array(q),v_next*dt)
 
     commander_left_arm.execute(q_next, v_next, dv_next, dt)
     commander_right_arm.execute(q_next, v_next, dv_next, dt)

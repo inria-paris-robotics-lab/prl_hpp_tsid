@@ -57,7 +57,7 @@ while True:
 
     # numerical integration
     v_next = np.array(v_meas + dt*dv_next)
-    q_next = pin.integrate(robot.pin_model,np.array(q),v_next*dt)
+    q_next = pin.integrate(robot.pin_robot_wrapper.model,np.array(q),v_next*dt)
 
     commander_left_arm.execute(q_next, v_next, dv_next, dt)
     commander_right_arm.execute(q_next, v_next, dv_next, dt)

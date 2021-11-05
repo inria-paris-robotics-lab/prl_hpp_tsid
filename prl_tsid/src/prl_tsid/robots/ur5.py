@@ -9,11 +9,18 @@ from prl_tsid.tsid_commander import Commander
 
 import numpy as np
 
-tsid_robot = tsid.RobotWrapper(robot.pin_model, True, False)
+tsid_robot = tsid.RobotWrapper(robot.pin_robot_wrapper.model, True, False)
 
 q0 = np.zeros(tsid_robot.nq)
 v0 = np.zeros(tsid_robot.nv)
 a0 = np.zeros(tsid_robot.na)
+
+robot.create_visualizer()
+robot.display_visualizer(q0)
+
+input("...")
+
+robot.pin_robot_wrapper.viz.clean()
 
 formulation = tsid.InverseDynamicsFormulationAccForce("tsid", tsid_robot, False)
 formulation.computeProblemData(0.0, q0, v0)

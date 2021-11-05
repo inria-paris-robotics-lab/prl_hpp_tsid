@@ -25,9 +25,12 @@ class Robot:
         # Joint topic from ros
         self.joint_state_topic = joint_state_topic
 
-        # Build pinocchio model
-        self.pin_model = pinocchio.buildModelFromXML(urdfString)
-        self.pin_data = self.pin_model.createData()
+        # Build pinocchio models and wrappers
+        pin_model = pinocchio.buildModelFromXML(urdfString)
+        pin_collision_model = pinocchio.buildGeomFromUrdfString(pin_model, self.get_urdf_explicit(), pinocchio.COLLISION)
+        pin_visual_model    = pinocchio.buildGeomFromUrdfString(pin_model, self.get_urdf_explicit(), pinocchio.VISUAL)
+    
+        self.pin_robot_wrapper = pinocchio.RobotWrapper(pin_model, pin_collision_model, pin_visual_model)
 
         # # Check that for each ros joint the corresponding pinocchio model joint matches the name and index
         # ros_joint_names = rospy.wait_for_message(self.joint_state_topic, JointState).name
@@ -43,12 +46,12 @@ class Robot:
         # The input/output of this class will always be according to pinocchio joint order
         rospy.loginfo(F"Wait for a JointState message on {self.joint_state_topic}...")
         self._ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
-        self._pin_joint_names = list(self.pin_model.names[1:]) # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
+        self._pin_joint_names = list(pin_model.names[1:]) # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
 
         # enumerate all the DoF and group them by joint
         index = 0
         q_pin_to_pin = []
-        for joint in self.pin_model.joints:
+        for joint in pin_model.joints:
             joint_indexes = []
             for i in range(joint.nq):
                 joint_indexes.append(index)
@@ -73,7 +76,7 @@ class Robot:
         # enumerate all the DoF and group them by joint
         index = 0
         v_pin_to_pin = []
-        for joint in self.pin_model.joints:
+        for joint in pin_model.joints:
             joint_indexes = []
             for i in range(joint.nv):
                 joint_indexes.append(index)
@@ -168,9 +171,9 @@ class Robot:
 
         if not raw:
             for i, pos in enumerate(q):
-                pos = max(pos, self.pin_model.lowerPositionLimit[i])
-                pos = min(pos, self.pin_model.upperPositionLimit[i])
-                assert abs(pos - q[i]) < 1e-3, F"Joint {i} way out of bounds : {self.pin_model.names[i+1]}"
+                pos = max(pos, self.pin_robot_wrapper.model.lowerPositionLimit[i])
+                pos = min(pos, self.pin_robot_wrapper.model.upperPositionLimit[i])
+                assert abs(pos - q[i]) < 1e-3, F"Joint {i} way out of bounds : {self.pin_robot_wrapper.pin_model.names[i+1]}"
                 q[i] = pos
         
         return q, v, tau
@@ -202,12 +205,12 @@ class Robot:
 
         q = numpy.matrix(q).T
 
-        pinocchio.forwardKinematics(self.pin_model, self.pin_data, q)
+        self.pin_robot_wrapper.forwardKinematics(q)
 
-        frame_index = self.pin_model.getJointId(jointName)
-        assert frame_index < len(self.pin_data.oMi), "Joint name not found in robot model : " + jointName
+        frame_index = self.pin_robot_wrapper.model.getJointId(jointName)
+        assert frame_index < len(self.pin_robot_wrapper.data.oMi), "Joint name not found in robot model : " + jointName
 
-        oMf = self.pin_data.oMi[frame_index]
+        oMf = self.pin_robot_wrapper.data.oMi[frame_index]
         xyz_quat = pinocchio.SE3ToXYZQUATtuple(oMf)
         return xyz_quat
 
@@ -245,3 +248,11 @@ class Robot:
         """
         q_curr = self.get_meas_q()
         return compare_configurations(q, q_curr, threshold)
+
+    def create_visualizer(self):
+        from pinocchio.visualize import RVizVisualizer
+        self.pin_robot_wrapper.setVisualizer(RVizVisualizer())
+        self.pin_robot_wrapper.initViewer(loadModel=True, initRosNode=False)
+
+    def display_visualizer(self, q):
+        self.pin_robot_wrapper.display(q)

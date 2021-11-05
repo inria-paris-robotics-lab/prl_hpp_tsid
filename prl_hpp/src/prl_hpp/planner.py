@@ -35,7 +35,7 @@ class Planner:
             robot (Robot): Associated Robot class. (see robot.py)
         """
         self.robot = robot
-        self.hpp_robot = HppRobot(robot.pin_model.name, "robot", robot.get_urdf_explicit(), robot.get_srdf_explicit())
+        self.hpp_robot = HppRobot(robot.pin_robot_wrapper.model.name, "robot", robot.get_urdf_explicit(), robot.get_srdf_explicit())
 
         # Problem
         self.ps = ProblemSolver(self.hpp_robot)
@@ -337,7 +337,7 @@ class Planner:
         except Error:
             pass
         # self.ps.clearRoadmap()
-        self.hpp_robot.__init__(self.robot.pin_model.name, "robot", self.robot.get_urdf_explicit(), self.robot.get_srdf_explicit())
+        self.hpp_robot.__init__(self.robot.pin_robot_wrapper.model.name, "robot", self.robot.get_urdf_explicit(), self.robot.get_srdf_explicit())
         self.ps.resetGoalConfigs()
 
     def _timeParametrizePath(self, pathId):

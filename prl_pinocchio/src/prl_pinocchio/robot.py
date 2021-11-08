@@ -254,5 +254,5 @@ class Robot:
         self.pin_robot_wrapper.setVisualizer(RVizVisualizer())
         self.pin_robot_wrapper.initViewer(loadModel=True, initRosNode=False)
 
-    def display_visualizer(self, q):
+    def display(self, q):
         self.pin_robot_wrapper.display(q)

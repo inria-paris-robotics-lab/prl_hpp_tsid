@@ -43,8 +43,7 @@ while True:
     r.sleep()
     q_meas, v_meas, _ = robot.get_meas_qvtau(raw = True)
 
-    if(i%10 == 0):
-        rospy.logwarn(q)
+    robot.display(np.array(q_meas))
 
     HQPData = formulation.computeProblemData(t.to_sec(), np.array(q_meas), np.array(v_meas))
     sol = solver.solve(HQPData)

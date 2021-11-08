@@ -16,11 +16,7 @@ v0 = np.zeros(tsid_robot.nv)
 a0 = np.zeros(tsid_robot.na)
 
 robot.create_visualizer()
-robot.display_visualizer(q0)
-
-input("...")
-
-robot.pin_robot_wrapper.viz.clean()
+robot.display(q0)
 
 formulation = tsid.InverseDynamicsFormulationAccForce("tsid", tsid_robot, False)
 formulation.computeProblemData(0.0, q0, v0)

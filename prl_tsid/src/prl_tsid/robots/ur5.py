@@ -2,10 +2,8 @@
 import rospy
 rospy.init_node("TSID", anonymous=True)
 
-from prl_pinocchio.ur5 import robot
-
 import tsid
-from prl_pinocchio.commander import Commander
+from prl_pinocchio.ur5 import robot, commander_left_arm, commander_right_arm
 
 import numpy as np
 
@@ -20,7 +18,3 @@ robot.display(q0)
 
 formulation = tsid.InverseDynamicsFormulationAccForce("tsid", tsid_robot, False)
 formulation.computeProblemData(0.0, q0, v0)
-
-# ROS
-commander_left_arm = Commander(robot, robot.left_arm_joints, "/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")
-commander_right_arm = Commander(robot, robot.right_arm_joints, "/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")

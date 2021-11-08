@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 import rospy
 
-rospy.init_node("HPP", anonymous=True)
-
-from prl_hpp.ur5 import robot, planner, commander_left_arm as commander_L, commander_right_arm as commander_R
+from prl_hpp.ur5 import robot, planner, commander_left_arm, commander_right_arm
 pi = 3.1415926
 
 planner.lock_grippers()
@@ -30,6 +28,6 @@ paths = planner.make_pick_and_place(robot.left_gripper_name, pose_1, pose_2, app
 # planner.pp(paths[2].id)
 
 input("Solution found. Press enter to execute path")
-commander_L.execute(paths[0])
-commander_L.execute(paths[1])
-commander_L.execute(paths[2])
+commander_left_arm.execute_path(paths[0])
+commander_left_arm.execute_path(paths[1])
+commander_left_arm.execute_path(paths[2])

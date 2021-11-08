@@ -1,4 +1,5 @@
 from prl_pinocchio.robot import Robot
+from prl_pinocchio.commander import Commander
 
 """
  Create instances of Robot dedicated for the Double-UR5 robot.
@@ -22,3 +23,7 @@ class UR5_Robot(Robot):
 robot = UR5_Robot("prl_ur5_description", "joint_states")
 robot.MAX_JOINT_SPEED = 3.1415926 / 1.0 # 180°/s
 robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180°/s^2
+
+
+commander_left_arm = Commander(robot, robot.left_arm_joints, "/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")
+commander_right_arm = Commander(robot, robot.right_arm_joints, "/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")

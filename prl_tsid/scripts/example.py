@@ -7,7 +7,7 @@ from prl_tsid.robots.ur5 import robot, tsid_robot, formulation, commander_left_a
 qref = np.array([-1.55687287e+00, -1.56574731e+00, -1.56062175e+00, 2.40284589e-02, 1.61412316e+00, -7.95469352e-01, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.55664212e+00, -1.57508802e+00, 1.56221337e+00, 3.11631454e+00, -1.61955921e+00, 7.73079284e-01, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04])
 vref = np.zeros(tsid_robot.nv)
 
-my_K = 10
+my_K = 0.1
 
 postureTask = tsid.TaskJointPosture("task-posture", tsid_robot)
 postureTask.setKp(my_K* np.ones(tsid_robot.na))
@@ -20,7 +20,7 @@ actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", tsid_rob
 actuationBoundsTask.setBounds(tau_min, tau_max)
 formulation.addActuationTask(actuationBoundsTask, 1, 0, 0.0)
 
-v_max = tsid_robot.model().velocityLimit
+v_max = 0.25 * tsid_robot.model().velocityLimit
 v_min = - v_max
 jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", tsid_robot, 0.1)
 jointBoundsTask.setVelocityBounds(v_min, v_max)

@@ -7,8 +7,6 @@ import numpy
 
 class Robot:
     """ User friendly Robot class that encapsulate the HppRobot and some ROS functionnality """
-    MAX_JOINT_SPEED = 1.0
-
     def __init__(self, robot_description_param_prefix, joint_state_topic):
         """
         Parameters

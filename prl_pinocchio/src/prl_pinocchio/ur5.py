@@ -21,9 +21,9 @@ class UR5_Robot(Robot):
         self.right_arm_joints = list(filter(lambda joint: joint.lower().find("right") != -1 and joint.lower().find("gripper") == -1, joints))
 
 robot = UR5_Robot("prl_ur5_description", "joint_states")
-robot.MAX_JOINT_SPEED = 3.1415926 / 1.0 # 180°/s
-robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180°/s^2
 
+# Arbitrary value (as velocity and effort limits are already defined in the model)
+robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180°/s^2
 
 commander_left_arm = Commander(robot, robot.left_arm_joints, "/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")
 commander_right_arm = Commander(robot, robot.right_arm_joints, "/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")

@@ -5,7 +5,7 @@ rospy.init_node("TSID", anonymous=True)
 from prl_pinocchio.ur5 import robot
 
 import tsid
-from prl_tsid.tsid_commander import Commander
+from prl_pinocchio.commander import Commander
 
 import numpy as np
 

@@ -20,11 +20,9 @@ solver = tsid.SolverHQuadProgFast("qp solver")
 solver.resize(formulation.nVar, formulation.nEq, formulation.nIn)
 
 
-q, v, _ = robot.get_meas_qvtau()
-
 i = 0
 dt = 0.1
-r = rospy.Rate(1. / dt)
+r = rospy.Rate(2. / dt)
 t = rospy.Time.now()
 print("Start the loop")
 while True:
@@ -37,7 +35,7 @@ while True:
     # dv_ref[:,i] = -two_pi_f_squared_amp * np.sin(two_pi_f*t + phi)
     samplePosture.value(q_ref)
     samplePosture.derivative(v_ref)
-    samplePosture.second_derivative(np.array([0 for _ in v]))
+    samplePosture.second_derivative(np.array([0 for _ in v_ref]))
     postureTask.setReference(samplePosture)
 
     r.sleep()
@@ -56,9 +54,9 @@ while True:
 
     # numerical integration
     v_next = np.array(v_meas + dt*dv_next)
-    q_next = pin.integrate(robot.pin_robot_wrapper.model,np.array(q),v_next*dt)
+    q_next = pin.integrate(robot.pin_robot_wrapper.model,np.array(q_meas),v_next*dt)
 
-    commander_left_arm.execute(q_next, v_next, dv_next, dt)
-    commander_right_arm.execute(q_next, v_next, dv_next, dt)
+    commander_left_arm.execute_step(q_next, v_next, dv_next, dt)
+    commander_right_arm.execute_step(q_next, v_next, dv_next, dt)
 
     i+=1

@@ -10,13 +10,13 @@ class Commander:
 
     DT = 1/125. # control frequency
 
-    def __init__(self, robot, jointsName, action_name, speedScaling = 1.0, accScaling = 1.0):
+    def __init__(self, robot, jointsName, trajectory_action_name, speedScaling = 1.0, accScaling = 1.0):
         """
         Parameters
         ----------
             robot (Robot): Robot class to control. (see robot.py).
-            jointsName (str): Name of the joints to actually command.
-            action_name (str): Name of the ros action server for controlling the robot.
+            jointsName (str[]): Name of the joints to actually command.
+            trajectory_action_name (str): Name of the ros action server for controlling the robot with trajectories.
 
         Optionnals parameters:
         ----------------------
@@ -24,11 +24,16 @@ class Commander:
         """
         self.jointsName = jointsName
         self.robot = robot
-        self.action_client = actionlib.SimpleActionClient(action_name, FollowJointTrajectoryAction)
-        rospy.loginfo("Waiting for action server "  + action_name)
-        self.action_client.wait_for_server()
 
-    def execute(self, path):
+        # Create action client to send the commands 
+        self._action_client = actionlib.SimpleActionClient(trajectory_action_name, FollowJointTrajectoryAction)
+        rospy.loginfo("Waiting for action server "  + trajectory_action_name)
+        self._action_client.wait_for_server()
+
+        # Extract indexes of the joints from the full robot to actually command with this commander
+        self._commanded_joints_indexes = self._get_joint_indexes(jointsName, self.robot.get_joint_names())
+
+    def execute_path(self, path, wait=True):
         """
         Execute a path on the robot.
 
@@ -42,16 +47,17 @@ class Commander:
             AssertionError: If the one or more commanded joint from this Commander is not in the path joints.
         """
         # Find indexes of the commanded joints in the path
-        commandJoints = self._get_joint_indexes(self.jointsName, path.jointList)
-        robotJoints = self._get_joint_indexes(self.robot.get_joint_names(), path.jointList)
+        commanded_joints_indexes = self._get_joint_indexes(self.jointsName, path.jointList)
+        robot_joints_indexes = self._get_joint_indexes(self.robot.get_joint_names(), path.jointList)
 
-        def filterJoints(q_in, joints = commandJoints): # Small function to extract only interresting joints from a configuration in path
+        # Small function to extract only interresting joints from a configuration in path
+        def filterJoints(q_in, joints):
             q_out = [q_in[index] for index in joints]
             return q_out
 
-        q_start = filterJoints(path.corbaPath.call(0)[0], robotJoints)
+        # Check that the robot is close to the start configuration
+        q_start = filterJoints(path.corbaPath.call(0)[0], robot_joints_indexes)
         assert self.robot.is_at_config(q_start), "The robot current configuration differs too much from the start configuration of the path"
-        # TODO : also check that the path is still valid with no collisions ?
 
         # Create ROS message
         jointTraj = JointTrajectory(joint_names = self.jointsName)
@@ -60,17 +66,42 @@ class Commander:
         t = 0
         while t < path.corbaPath.length():
             t_ros = rospy.Time.from_sec(t)
-            q = filterJoints(path.corbaPath.call(t)[0])
-            q_dot = filterJoints(path.corbaPath.derivative(t, 1))
+            q = filterJoints(path.corbaPath.call(t)[0], commanded_joints_indexes)
+            q_dot = filterJoints(path.corbaPath.derivative(t, 1), commanded_joints_indexes)
             point = JointTrajectoryPoint(positions = q, velocities = q_dot, time_from_start = t_ros)
             jointTraj.points.append(point)
             t += self.DT
 
         # Make header timestamp and send goal to controller
         jointTraj.header.stamp = rospy.get_rostime()
-        self.action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
-        self.action_client.wait_for_result()
-        # print(self.action_client.get_result())
+        self._action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
+
+        # Wait for the path to be fully executed
+        if wait:
+            self._action_client.wait_for_result()
+
+    def execute_step(self, q_next, v_next, dv, dt):
+        """
+        Execute a (q, v, dv) for a dt period on the robot.
+
+        Parameters
+        ----------
+            q_next  (float[]): joint position reference.
+            v_next  (float[]): joint velocity reference.
+            dv      (float[]): joint acceleration reference.
+            dt      (float[]): Duration during which to apply dt in order to get to (v_next, q_next).
+        """
+        # Filter joints
+        q_next = [q_next[i] for i in self._commanded_joints_indexes]
+        v_next = [v_next[i] for i in self._commanded_joints_indexes]
+        dv = [dv[i] for i in self._commanded_joints_indexes]
+
+        # Create ROS message
+        jointTraj = JointTrajectory(joint_names = self.jointsName, points = [JointTrajectoryPoint(positions = q_next, velocities = v_next, accelerations = dv, time_from_start = rospy.Time.from_sec(dt)),])
+
+        # Make header timestamp and send goal to controller
+        jointTraj.header.stamp = rospy.get_rostime()
+        self._action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
 
     def _get_joint_indexes(self, jointSubSet, jointSet, strict = True):
         indexes = []

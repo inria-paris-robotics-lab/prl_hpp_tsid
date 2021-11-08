@@ -29,7 +29,7 @@ paths = planner.make_pick_and_place(robot.left_gripper_name, pose_1, pose_2, app
 # input("Press enter to display path")
 # planner.pp(paths[2].id)
 
-# input("Solution found. Press enter to execute path")
-# commander_L.execute(paths[0])
-# commander_L.execute(paths[1])
-# commander_L.execute(paths[2])
+input("Solution found. Press enter to execute path")
+commander_L.execute(paths[0])
+commander_L.execute(paths[1])
+commander_L.execute(paths[2])

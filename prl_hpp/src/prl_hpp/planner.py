@@ -18,10 +18,11 @@ loadServerPlugin ("corbaserver", "manipulation-corba.so")
 Client ().problem.resetProblem ()
 
 class Path:
-    def __init__(self, id, corbaPath, jointList):
+    def __init__(self, id, corbaPath, jointList, targetFrames = []):
         self.id = id
         self.corbaPath = corbaPath
         self.jointList = jointList
+        self.targetFrames = targetFrames
 
 class Planner:
     """
@@ -190,7 +191,7 @@ class Planner:
         path.deleteThis()
 
         # return path
-        return Path(paramPathId, paramPath, self.robot.get_joint_names())
+        return Path(paramPathId, paramPath, self.robot.get_joint_names(), [gripperName])
 
     def set_velocity_limit(self, scale):
         """
@@ -313,9 +314,9 @@ class Planner:
         param_home_path = wd(self.ps.hppcorba.problem.getPath(param_home_pathId))
 
         # return paths
-        return  Path(param_pick_pathId, param_pick_path, self.robot.get_joint_names()), \
-                Path(param_place_pathId, param_place_path, self.robot.get_joint_names()), \
-                Path(param_home_pathId, param_home_path, self.robot.get_joint_names())
+        return  Path(param_pick_pathId, param_pick_path, self.robot.get_joint_names(), [gripperName]), \
+                Path(param_place_pathId, param_place_path, self.robot.get_joint_names(), [gripperName]), \
+                Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperName])
 
 
     def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4):

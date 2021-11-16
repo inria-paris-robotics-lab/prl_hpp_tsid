@@ -19,5 +19,9 @@ paths = planner.make_pick_and_place(robot.left_gripper_name, pose_1, pose_2, app
 
 # Exectute the trajectories using TSID
 pf = PathFollower(robot)
+pf.set_velocity_limit(0.25)
+pf.set_torque_limit(0.25)
 
-pf.execute_path(paths[0], [commander_left_arm, commander_right_arm], 0.1, planner.vf)
+commander_left_arm.start_fwd()
+commander_right_arm.start_fwd()
+pf.execute_path(paths[0], [commander_left_arm, commander_right_arm], 0.01)

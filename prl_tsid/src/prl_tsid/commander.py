@@ -22,7 +22,7 @@ class PathFollower:
         self.robot.display(q0)
 
         # Create the tasks
-        my_K = 0.1
+        my_K = 100
 
         self.postureSample = tsid.TrajectorySample(len(q0), len(v0))
         self.postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
@@ -33,7 +33,7 @@ class PathFollower:
         self.actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", self.tsid_robot)
         self.formulation.addActuationTask(self.actuationBoundsTask, 1, 0, 0.0)
         
-        self.jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", self.tsid_robot, 0.1)
+        self.jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", self.tsid_robot, 0.1) # dt will be re-set before executing
         self.formulation.addMotionTask(self.jointBoundsTask, 1, 0, 0.0)
 
         # Init the tasks
@@ -106,7 +106,7 @@ class PathFollower:
 
             # publish commands
             for commander in commanders:
-                commander.execute_step(q_next, v_next, dv_next, dt)
+                commander.execute_step_fwd(v_next)
             
             # Wait for next step
             rate.sleep()

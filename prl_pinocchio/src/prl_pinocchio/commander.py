@@ -2,6 +2,7 @@ import rospy
 import actionlib
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
+from std_msgs.msg import Float64MultiArray, MultiArrayDimension
 
 class Commander:
     """
@@ -10,7 +11,7 @@ class Commander:
 
     DT = 1/125. # control frequency
 
-    def __init__(self, robot, jointsName, trajectory_action_name, speedScaling = 1.0, accScaling = 1.0):
+    def __init__(self, robot, jointsName, /, trajectory_action_name=None, fwd_action_name=None, speedScaling = 1.0, accScaling = 1.0):
         """
         Parameters
         ----------
@@ -25,13 +26,43 @@ class Commander:
         self.jointsName = jointsName
         self.robot = robot
 
+        self._trajectory_action_name = trajectory_action_name
+        self._fwd_action_name = fwd_action_name
+
         # Create action client to send the commands 
-        self._action_client = actionlib.SimpleActionClient(trajectory_action_name, FollowJointTrajectoryAction)
-        rospy.loginfo("Waiting for action server "  + trajectory_action_name)
-        self._action_client.wait_for_server()
+        self._traj_action_client = None
+        self._fwd_pub_topic = None
 
         # Extract indexes of the joints from the full robot to actually command with this commander
         self._commanded_joints_indexes = self._get_joint_indexes(jointsName, self.robot.get_joint_names())
+
+    def start_trajecotry(self):
+        """
+        Start the commander for trajectory control.
+
+        This requires to have initialized the ROS node already.
+        """
+        # Check if the action client is already created
+        if self._traj_action_client is None:
+            if self._trajectory_action_name is not None:
+                self._traj_action_client = actionlib.SimpleActionClient(self._trajectory_action_name, FollowJointTrajectoryAction)
+                rospy.loginfo("Waiting for action server "  + self._trajectory_action_name)
+                self._traj_action_client.wait_for_server()
+            else:
+                rospy.logwarn("No action server name provided. start_trajecotry() is skipped.")
+
+    def start_fwd(self):
+        """
+        Start the commander for fwd control.
+
+        This requires to have initialized the ROS node already.
+        """
+        # Check if the action client is already created
+        if self._fwd_pub_topic is None:
+            if self._fwd_action_name is not None:
+                self._fwd_pub_topic = rospy.Publisher(self._fwd_action_name + "/command", Float64MultiArray, queue_size=1)
+            else:
+                rospy.logwarn("No action server name provided. start_fwd() is skipped.")
 
     def execute_path(self, path, wait=True):
         """
@@ -45,7 +76,12 @@ class Commander:
         ------
             AssertionError: If the start configuration of the path differs too much from the actual robot configuration.
             AssertionError: If the one or more commanded joint from this Commander is not in the path joints.
+            AssertionError: If the action client is not initialized.
         """
+        if self._traj_action_client is None:
+            rospy.logerr("Action client not initialized. Did you call start_trajecotry() first.")
+            raise AssertionError("Action client not initialized. Did you call start_trajecotry() first.")
+
         # Find indexes of the commanded joints in the path
         commanded_joints_indexes = self._get_joint_indexes(self.jointsName, path.jointList)
         robot_joints_indexes = self._get_joint_indexes(self.robot.get_joint_names(), path.jointList)
@@ -74,13 +110,13 @@ class Commander:
 
         # Make header timestamp and send goal to controller
         jointTraj.header.stamp = rospy.get_rostime()
-        self._action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
+        self._traj_action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
 
         # Wait for the path to be fully executed
         if wait:
-            self._action_client.wait_for_result()
+            self._traj_action_client.wait_for_result()
 
-    def execute_step(self, q_next, v_next, dv, dt):
+    def execute_step_trajecotry(self, q_curr, v_curr, q_next, v_next, dv, dt):
         """
         Execute a (q, v, dv) for a dt period on the robot.
 
@@ -91,17 +127,22 @@ class Commander:
             dv      (float[]): joint acceleration reference.
             dt      (float[]): Duration during which to apply dt in order to get to (v_next, q_next).
         """
+        if self._traj_action_client is None:
+            rospy.logerr("Action client not initialized. Did you call start_trajecotry() first.")
+            raise AssertionError("Action client not initialized. Did you call start_trajecotry() first.")
+
         # Filter joints
         q_next = [q_next[i] for i in self._commanded_joints_indexes]
         v_next = [v_next[i] for i in self._commanded_joints_indexes]
         dv = [dv[i] for i in self._commanded_joints_indexes]
 
         # Create ROS message
-        jointTraj = JointTrajectory(joint_names = self.jointsName, points = [JointTrajectoryPoint(positions = q_next, velocities = v_next, accelerations = dv, time_from_start = rospy.Time.from_sec(dt)),])
+        jointTraj = JointTrajectory(joint_names = self.jointsName, points = [ JointTrajectoryPoint(positions = q_curr, velocities = v_curr, accelerations = dv, time_from_start = rospy.Time.from_sec(0)),
+                                                                              JointTrajectoryPoint(positions = q_next, velocities = v_next, accelerations = dv, time_from_start = rospy.Time.from_sec(dt)),])
 
         # Make header timestamp and send goal to controller
-        jointTraj.header.stamp = rospy.get_rostime()
-        self._action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
+        jointTraj.header.stamp = rospy.Time()
+        self._traj_action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
 
     def _get_joint_indexes(self, jointSubSet, jointSet, strict = True):
         indexes = []
@@ -112,3 +153,31 @@ class Commander:
                     break #next joint
         assert (not strict) or (len(indexes)==len(jointSubSet)), "Not all joint from the subset could be found in the set for :" + str(jointSubSet) + "\n in :" + str(jointSet)
         return indexes
+
+
+    def execute_step_fwd(self, v):
+        """
+        Execute a velocity on the robot.
+
+        Parameters
+        ----------
+            v (float[]): joint velocity reference.
+
+        Raises
+        ------
+            AssertionError: If the action client is not initialized.
+        """
+        if self._fwd_pub_topic is None:
+            rospy.logerr("Action client not initialized. Did you call start_fwd() first.")
+            raise AssertionError("Action client not initialized. Did you call start_fwd() first.")
+
+        # Filter joints
+        v = [v[i] for i in self._commanded_joints_indexes]
+
+        # Create ROS message
+        fwd = Float64MultiArray()
+        fwd.data = v
+        fwd.layout.dim.append(MultiArrayDimension(label='nv', size=len(v)))
+
+        # Send goal to controller
+        self._fwd_pub_topic.publish(fwd)

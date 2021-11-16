@@ -1,13 +1,13 @@
 import tsid
+import rospy
 import numpy as np
 import pinocchio as pin
-
-# Do this first as prl_hpp.ur5 requires the node to be already started
-import rospy
 rospy.init_node("TSID", anonymous=True)
-
-import tsid
 from prl_pinocchio.ur5 import robot, commander_left_arm, commander_right_arm
+
+# Init ros node and commanders
+commander_left_arm.start_fwd()
+commander_right_arm.start_fwd()
 
 # TSID Robot
 tsid_robot = tsid.RobotWrapper(robot.pin_robot_wrapper.model, True, False)
@@ -21,15 +21,16 @@ a0 = np.zeros(tsid_robot.na)
 formulation = tsid.InverseDynamicsFormulationAccForce("tsid", tsid_robot, False)
 formulation.computeProblemData(0.0, q0, v0)
 
-qref = np.array([-1.55687287e+00, -1.56574731e+00, -1.56062175e+00, 2.40284589e-02, 1.61412316e+00, -7.95469352e-01, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.55664212e+00, -1.57508802e+00, 1.56221337e+00, 3.11631454e+00, -1.61955921e+00, 7.73079284e-01, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04, 4.43863538e-04])
+qref = np.array([-1.55687287e+00, -1.56574731e+00, -1.56062175e+00, 2.40284589e-02, 1.61412316e+00, -7.95469352e-01, 0., 0., 0., 0., 0., 0., 0., 0., 1.55664212e+00, -1.57508802e+00, 1.56221337e+00, 3.11631454e+00, -1.61955921e+00, 7.73079284e-01, 0., 0., 0., 0., 0., 0.])
 vref = np.zeros(tsid_robot.nv)
 
-my_K = 0.1
+dt = 0.01
+my_K = 100
 
 postureTask = tsid.TaskJointPosture("task-posture", tsid_robot)
 postureTask.setKp(my_K* np.ones(tsid_robot.na))
-postureTask.setKd(2.0 * np.sqrt(my_K) * np.zeros(tsid_robot.na)) # ZEROS !
-formulation.addMotionTask(postureTask, 1, 1, 0.0)
+postureTask.setKd(2.0 * np.sqrt(my_K) * np.ones(tsid_robot.na))
+formulation.addMotionTask(postureTask, 10, 1, 0.0)
 
 tau_max = tsid_robot.model().effortLimit
 tau_min = - tau_max
@@ -39,7 +40,7 @@ formulation.addActuationTask(actuationBoundsTask, 1, 0, 0.0)
 
 v_max = 0.25 * tsid_robot.model().velocityLimit
 v_min = - v_max
-jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", tsid_robot, 0.1)
+jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", tsid_robot, dt)
 jointBoundsTask.setVelocityBounds(v_min, v_max)
 formulation.addMotionTask(jointBoundsTask, 1, 0, 0.0)
 
@@ -51,14 +52,15 @@ solver.resize(formulation.nVar, formulation.nEq, formulation.nIn)
 
 robot.create_visualizer()
 
-i = 1
-dt = 0.1
+# Debug
+from std_msgs.msg import Float64MultiArray, MultiArrayDimension
+pub_err_vel = rospy.Publisher('/tsid/err_vel', Float64MultiArray, queue_size=10)
+pub_err_pos = rospy.Publisher('/tsid/err_pos', Float64MultiArray, queue_size=10)
+
+i = 0
 r = rospy.Rate(2. / dt)
 t_start = rospy.Time.now()
 print("Start the loop")
-
-q_meas, v_meas, _ = robot.get_meas_qvtau(raw = True)
-
 while not rospy.is_shutdown():
     t = rospy.Time.now() - t_start
 
@@ -84,23 +86,36 @@ while not rospy.is_shutdown():
     # if i%25==0:
     #     rospy.logwarn(tau)
     
-    dv_next = formulation.getAccelerations(sol)
-
     # numerical integration
-    v_next = np.array(v_meas + dt*dv_next)
-    q_next = pin.integrate(robot.pin_robot_wrapper.model, np.array(q_meas), v_next*dt)
+    dv_next = formulation.getAccelerations(sol)
+    v_next = np.array(v_meas + 1.0 * dt*dv_next)
+    v_mean = np.array(v_meas + 0.5 * dt*dv_next)
+    q_next = pin.integrate(robot.pin_robot_wrapper.model, np.array(q_meas), v_mean*dt)
 
-    if i%25==0:
-        rospy.logwarn("{q_meas[i]} - {q_ref[i]} = {q_meas[i] - q_ref[i]}  --> {v_next[i]}")
-        for i in range(len(q_ref)):
-            rospy.logwarn(F"{q_meas[i] : .3f} - {q_ref[i] : .3f} = {q_meas[i] - q_ref[i] : .3f}  --> {100 * v_next[i] : .3f}")
-        rospy.logwarn("\n")
+    # v_next = 1 * (q_ref - q_meas)
+    # v_mean = (np.array(v_meas) + v_next)/2.
+    # q_next = pin.integrate(robot.pin_robot_wrapper.model, np.array(q_meas), v_mean*dt)
+    # dv_next = (v_next - v_meas) / dt
+
+
+    pub_err_vel.publish(Float64MultiArray(data=(v_mean-v_meas).tolist()))
+    pub_err_pos.publish(Float64MultiArray(data=(q_ref-q_meas).tolist()))
+
+    # if i%25==0:
+    #     rospy.logwarn("{q_meas[i]} - {q_ref[i]} = {q_meas[i] - q_ref[i]}  --> {v_next[i]}")
+    #     for i in range(len(q_ref)):
+    #         diff = q_meas[i] - q_ref[i]
+    #         rospy.logwarn(F"{q_meas[i] : .3f} - {q_ref[i] : .3f} = {diff : .3f}  --> {100 * v_next[i] : .3f}   {'x' if q_ref[i] != 0 and diff*v_next[i] > 0 else ''}")
+    #     rospy.logwarn("\n")
 
     # robot.display(q_next)
     # q_meas, v_meas = q_next, v_next
 
-    commander_left_arm.execute_step(q_next, v_next, dv_next, dt)
-    commander_right_arm.execute_step(q_next, v_next, dv_next, dt)
+    # commander_left_arm.execute_step_deprecated(q_meas, v_meas, q_next, v_next, dv_next, dt)
+    # commander_right_arm.execute_step_deprecated(q_meas, v_meas, q_next, v_next, dv_next, dt)
+
+    commander_left_arm.execute_step_fwd(v_mean)
+    commander_right_arm.execute_step_fwd(v_mean)
 
     i+=1
     r.sleep()

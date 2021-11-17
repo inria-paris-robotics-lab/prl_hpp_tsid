@@ -1,6 +1,7 @@
 import rospy
 from sensor_msgs.msg import JointState
 from prl_pinocchio.tools.utils import replace_path_to_absolute, compare_configurations
+from prl_pinocchio.tools.observer import Observer
 import pinocchio
 import numpy
 
@@ -42,10 +43,11 @@ class Robot:
 
         # Make a lookup table to change between ros joint index and pinocchio joint index (using joints names)
         # The input/output of this class will always be according to pinocchio joint order
+        self._joint_state_obs = Observer(joint_state_topic, JointState)
         rospy.loginfo(F"Wait for a JointState message on {self.joint_state_topic}...")
 
         # Prepare lookup table to re-arrange q, v, a from ros to pinocchio format, etc..
-        ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
+        ros_joint_names = list(self._joint_state_obs.get_last_msg().name)
         self._q_pin_to_ros, self._q_ros_to_pin, self._v_pin_to_ros, self._v_ros_to_pin = self.create_dof_lookup(ros_joint_names)
 
     def get_urdf_explicit(self):
@@ -95,7 +97,7 @@ class Robot:
         ------
             AssertionError: If the adjusted configuration deviates too much from the original one.
         """
-        joints_state = rospy.wait_for_message(self.joint_state_topic, JointState)
+        joints_state = self._joint_state_obs.get_last_msg()
         q = list(joints_state.position)
         v = list(joints_state.velocity)
         tau = list(joints_state.effort)

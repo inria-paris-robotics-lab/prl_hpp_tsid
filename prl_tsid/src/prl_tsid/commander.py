@@ -23,10 +23,10 @@ class PathFollower:
 
         ## Create the tasks
         na_ones = np.ones(self.tsid_robot.na)
-        K_ee = 100
-        self.w_ee = 20
-        K_posture = 1
-        w_posture = 1
+        self.K_ee = 10
+        self.w_ee = 10
+        K_posture = 10
+        w_posture = 10
 
         # Posture task
         self.postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
@@ -38,7 +38,6 @@ class PathFollower:
         self.formulation.addMotionTask(self.postureTask, w_posture, 1, 0.0)
 
         # End effector task # Will be defined in execute as it varies on the end effectors
-        self.K_ee = K_ee
         self.na_ones = na_ones
 
         # Joint torque bounds task

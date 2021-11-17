@@ -27,7 +27,7 @@ class Robot:
         pin_model = pinocchio.buildModelFromXML(urdfString)
         pin_collision_model = pinocchio.buildGeomFromUrdfString(pin_model, self.get_urdf_explicit(), pinocchio.COLLISION)
         pin_visual_model    = pinocchio.buildGeomFromUrdfString(pin_model, self.get_urdf_explicit(), pinocchio.VISUAL)
-    
+
         self.pin_robot_wrapper = pinocchio.RobotWrapper(pin_model, pin_collision_model, pin_visual_model)
 
         # # Check that for each ros joint the corresponding pinocchio model joint matches the name and index
@@ -43,7 +43,7 @@ class Robot:
         # Make a lookup table to change between ros joint index and pinocchio joint index (using joints names)
         # The input/output of this class will always be according to pinocchio joint order
         rospy.loginfo(F"Wait for a JointState message on {self.joint_state_topic}...")
-        
+
         # Prepare lookup table to re-arrange q, v, a from ros to pinocchio format, etc..
         ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
         self._q_pin_to_ros, self._q_ros_to_pin, self._v_pin_to_ros, self._v_ros_to_pin = self.create_dof_lookup(ros_joint_names)
@@ -108,7 +108,7 @@ class Robot:
                 pos = min(pos, self.pin_robot_wrapper.model.upperPositionLimit[i])
                 assert abs(pos - q[i]) < 1e-3, F"Joint {i} way out of bounds : {self.pin_robot_wrapper.pin_model.names[i+1]}"
                 q[i] = pos
-        
+
         return q, v, tau
 
     def get_meas_pose(self, jointName, q=None):
@@ -254,7 +254,7 @@ class Robot:
         if q != None:
             q_res = [q[self._q_pin_to_ros[i]] for i in range(len(q))]
             res.append(q_res)
-        
+
         if v != None:
             v_res = [v[self._v_pin_to_ros[i]] for i in range(len(v))]
             res.append(v_res)

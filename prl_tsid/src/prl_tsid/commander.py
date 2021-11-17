@@ -32,9 +32,9 @@ class PathFollower:
         self.postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
         self.postureTask.setKp(K_posture * na_ones)
         self.postureTask.setKd(2.0 * np.sqrt(K_posture) * na_ones)
-        
+
         self.postureSample = tsid.TrajectorySample(len(q0), len(v0))
-        
+
         self.formulation.addMotionTask(self.postureTask, w_posture, 1, 0.0)
 
         # End effector task # Will be defined in execute as it varies on the end effectors
@@ -44,7 +44,7 @@ class PathFollower:
         # Joint torque bounds task
         self.actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", self.tsid_robot)
         self.formulation.addActuationTask(self.actuationBoundsTask, 1, 0, 0.0)
-        
+
         # Joint velocity bounds task
         self.jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", self.tsid_robot, 0.1) # dt will be re-set before executing
         self.formulation.addMotionTask(self.jointBoundsTask, 1, 0, 0.0)
@@ -79,7 +79,7 @@ class PathFollower:
             if eeIndex >= len(self.robot.pin_robot_wrapper.model.frames):
                 rospy.logwarn(F"Frame {targetFrame} not found in the robot model : task related to that frame will be ignored")
                 continue
-        
+
             eeTask_name = "ee-task-" + targetFrame
             eeTask = tsid.TaskSE3Equality(eeTask_name , self.tsid_robot, targetFrame)
             eeTask.setKp(self.K_ee* self.na_ones)
@@ -91,8 +91,8 @@ class PathFollower:
             eeTasks.append(eeTask)
             eeSamples.append(tsid.TrajectorySample(12, 6)) # Cartesian samples
 
-            self.formulation.addMotionTask(eeTask, self.w_ee, 1, 0.0) # TODO : Do not hardcode ! 
-        
+            self.formulation.addMotionTask(eeTask, self.w_ee, 1, 0.0)
+
         # Resize solver
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
@@ -111,7 +111,7 @@ class PathFollower:
                 return np.array([q[i] for i in q_pin_to_hpp]), \
                        np.array([v[i] for i in v_pin_to_hpp]), \
                        np.array([v_dot[i] for i in v_pin_to_hpp])
-                
+
         # Loop
         debug_i = 0
         while elapsed_time < path.corbaPath.length():
@@ -123,7 +123,7 @@ class PathFollower:
 
             # clip the elapsed time to the path length
             t = min(elapsed_time, path.corbaPath.length())
-            
+
             # Get references from trajectory
             q     = path.corbaPath.call(t)[0]
             v     = path.corbaPath.derivative(t, 1)
@@ -170,7 +170,7 @@ class PathFollower:
                     print("  ee_vel_vec", eeSamples[i].derivative())
                     print("  ee_acc_vec", eeSamples[i].second_derivative())
                 break
-            
+
 
             dv_next = self.formulation.getAccelerations(sol)
 
@@ -181,10 +181,10 @@ class PathFollower:
             # publish commands
             for commander in commanders:
                 commander.execute_step_fwd(v_next)
-            
+
             # Wait for next step
             rate.sleep()
-        
+
         # Remove all the end effector tasks
         for taskname in eeTasks_names:
             self.formulation.removeTask(taskname, 0.0)

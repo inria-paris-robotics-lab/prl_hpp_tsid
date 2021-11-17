@@ -81,11 +81,11 @@ while not rospy.is_shutdown():
     if(sol.status!=0):
         print(F"Time {t} QP problem could not be solved! Error code: {sol.status}")
         break
-    
+
     # tau = formulation.getActuatorForces(sol)
     # if i%25==0:
     #     rospy.logwarn(tau)
-    
+
     # numerical integration
     dv_next = formulation.getAccelerations(sol)
     v_next = np.array(v_meas + 1.0 * dt*dv_next)

@@ -43,75 +43,10 @@ class Robot:
         # Make a lookup table to change between ros joint index and pinocchio joint index (using joints names)
         # The input/output of this class will always be according to pinocchio joint order
         rospy.loginfo(F"Wait for a JointState message on {self.joint_state_topic}...")
-        self._ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
-        self._pin_joint_names = list(pin_model.names[1:]) # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
-
-        # enumerate all the DoF and group them by joint
-        index = 0
-        q_pin_to_pin = []
-        for joint in pin_model.joints:
-            joint_indexes = []
-            for i in range(joint.nq):
-                joint_indexes.append(index)
-                index+=1
-            q_pin_to_pin.append(joint_indexes)
-        # rearrange joints
-        q_ros_to_pin = []
-        for ros_index, name in enumerate(self._ros_joint_names):
-            pin_index = self._pin_joint_names.index(name)
-            q_ros_to_pin.append(q_pin_to_pin[pin_index])
-        # Flatten the list of list into a simple list
-        self._q_ros_to_pin = []
-        for indexes in q_ros_to_pin:
-            self._q_ros_to_pin.extend(indexes)
-        # Take the inverse of the bijection
-        self._q_pin_to_ros = []
-        for pin_index in range(len(self._q_ros_to_pin)):
-            ros_index = self._q_ros_to_pin.index(pin_index)
-            self._q_pin_to_ros.append(ros_index)
-
-        # re-do all of the previous for v (instead of q)
-        # enumerate all the DoF and group them by joint
-        index = 0
-        v_pin_to_pin = []
-        for joint in pin_model.joints:
-            joint_indexes = []
-            for i in range(joint.nv):
-                joint_indexes.append(index)
-                index+=1
-            v_pin_to_pin.append(joint_indexes)
-        # rearrange joints
-        v_ros_to_pin = []
-        for ros_index, name in enumerate(self._ros_joint_names):
-            pin_index = self._pin_joint_names.index(name)
-            v_ros_to_pin.append(v_pin_to_pin[pin_index])
-        # Flatten the list of list into a simple list
-        self._v_ros_to_pin = []
-        for indexes in v_ros_to_pin:
-            self._v_ros_to_pin.extend(indexes)
-        # Take the inverse of the bijection
-        self._v_pin_to_ros = []
-        for pin_index in range(len(self._v_ros_to_pin)):
-            ros_index = self._v_ros_to_pin.index(pin_index)
-            self._v_pin_to_ros.append(ros_index)
-
-
-    def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
-        res  = []
-
-        if q != None:
-            q_res = [q[self._q_pin_to_ros[i]] for i in range(len(v))]
-            res.append(q_res)
         
-        if v != None:
-            v_res = [v[self._v_pin_to_ros[i]] for i in range(len(v))]
-            res.append(v_res)
-
-        if tau != None:
-            tau_res = [tau[self._v_pin_to_ros[i]] for i in range(len(tau))]
-            res.append(tau_res)
-
-        return res
+        # Prepare lookup table to re-arrange q, v, a from ros to pinocchio format, etc..
+        ros_joint_names = list(rospy.wait_for_message(self.joint_state_topic, JointState).name)
+        self._q_pin_to_ros, self._q_ros_to_pin, self._v_pin_to_ros, self._v_ros_to_pin = self.create_dof_lookup(ros_joint_names)
 
     def get_urdf_explicit(self):
         return self._urdfStringExplicit
@@ -214,13 +149,13 @@ class Robot:
 
     def get_joint_names(self):
         """
-        Get the name of every 'actuated' joints.
+        Get the name of every 'actuated' joints as it's defined in pinocchio from the urdf model.
 
         Returns
         -------
             jointNames (str[]): List of the names
         """
-        return list(self._pin_joint_names)
+        return list(self.pin_robot_wrapper.model.names[1:])
 
     def is_at_config(self, q, threshold=0.1):
         """
@@ -254,3 +189,78 @@ class Robot:
 
     def display(self, q):
         self.pin_robot_wrapper.display(q)
+
+
+    def create_dof_lookup(self, new_joint_list):
+        pin_model = self.pin_robot_wrapper.model
+        pin_joint_names = self.get_joint_names()
+
+        # enumerate all the DoF and group them by joint
+        index = 0
+        q_pin_to_pin = []
+        for joint in pin_model.joints:
+            joint_indexes = []
+            for i in range(joint.nq):
+                joint_indexes.append(index)
+                index+=1
+            q_pin_to_pin.append(joint_indexes)
+        # rearrange joints
+        q_new_to_pin = []
+        for new_index, name in enumerate(new_joint_list):
+            pin_index = pin_joint_names.index(name)
+            q_new_to_pin.append(q_pin_to_pin[pin_index])
+        # Flatten the list of list into a simple list
+        res_q_new_to_pin = []
+        for indexes in q_new_to_pin:
+            res_q_new_to_pin.extend(indexes)
+        # Take the inverse of the bijection
+        res_q_pin_to_new = []
+        for pin_index in range(len(res_q_new_to_pin)):
+            new_index = res_q_new_to_pin.index(pin_index)
+            res_q_pin_to_new.append(new_index)
+
+        # re-do all of the previous for v (instead of q)
+        # enumerate all the DoF and group them by joint
+        index = 0
+        v_pin_to_pin = []
+        for joint in pin_model.joints:
+            joint_indexes = []
+            for i in range(joint.nv):
+                joint_indexes.append(index)
+                index+=1
+            v_pin_to_pin.append(joint_indexes)
+        # rearrange joints
+        v_new_to_pin = []
+        for new_index, name in enumerate(new_joint_list):
+            pin_index = pin_joint_names.index(name)
+            v_new_to_pin.append(v_pin_to_pin[pin_index])
+        # Flatten the list of list into a simple list
+        res_v_new_to_pin = []
+        for indexes in v_new_to_pin:
+            res_v_new_to_pin.extend(indexes)
+        # Take the inverse of the bijection
+        res_v_pin_to_new = []
+        for pin_index in range(len(res_v_new_to_pin)):
+            new_index = res_v_new_to_pin.index(pin_index)
+            res_v_pin_to_new.append(new_index)
+
+        return res_q_pin_to_new, res_q_new_to_pin, res_v_pin_to_new, res_v_new_to_pin 
+
+    def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
+        res  = []
+
+        # Remark: to convert a q (from ros) to a q (from pin), it use q_pin_to_ros because we want the ros index for each pin index (1, 2, 3, 4, ...)
+        # So then it picks the appropriate ros coordinate and arrange them in order.
+        if q != None:
+            q_res = [q[self._q_pin_to_ros[i]] for i in range(len(q))]
+            res.append(q_res)
+        
+        if v != None:
+            v_res = [v[self._v_pin_to_ros[i]] for i in range(len(v))]
+            res.append(v_res)
+
+        if tau != None:
+            tau_res = [tau[self._v_pin_to_ros[i]] for i in range(len(tau))]
+            res.append(tau_res)
+
+        return res

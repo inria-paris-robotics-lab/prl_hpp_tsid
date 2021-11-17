@@ -92,21 +92,8 @@ while not rospy.is_shutdown():
     v_mean = np.array(v_meas + 0.5 * dt*dv_next)
     q_next = pin.integrate(robot.pin_robot_wrapper.model, np.array(q_meas), v_mean*dt)
 
-    # v_next = 1 * (q_ref - q_meas)
-    # v_mean = (np.array(v_meas) + v_next)/2.
-    # q_next = pin.integrate(robot.pin_robot_wrapper.model, np.array(q_meas), v_mean*dt)
-    # dv_next = (v_next - v_meas) / dt
-
-
     pub_err_vel.publish(Float64MultiArray(data=(v_mean-v_meas).tolist()))
     pub_err_pos.publish(Float64MultiArray(data=(q_ref-q_meas).tolist()))
-
-    # if i%25==0:
-    #     rospy.logwarn("{q_meas[i]} - {q_ref[i]} = {q_meas[i] - q_ref[i]}  --> {v_next[i]}")
-    #     for i in range(len(q_ref)):
-    #         diff = q_meas[i] - q_ref[i]
-    #         rospy.logwarn(F"{q_meas[i] : .3f} - {q_ref[i] : .3f} = {diff : .3f}  --> {100 * v_next[i] : .3f}   {'x' if q_ref[i] != 0 and diff*v_next[i] > 0 else ''}")
-    #     rospy.logwarn("\n")
 
     # robot.display(q_next)
     # q_meas, v_meas = q_next, v_next

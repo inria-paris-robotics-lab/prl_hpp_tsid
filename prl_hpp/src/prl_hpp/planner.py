@@ -131,6 +131,7 @@ class Planner:
 
         self._reset_problem()
         gripperFullname = "robot/" + gripperName
+        gripperLink = self.robot.get_gripper_link(gripperName)
 
         # Create the approach object target
         self._create_target("target", approach_distance)
@@ -191,7 +192,7 @@ class Planner:
         path.deleteThis()
 
         # return path
-        return Path(paramPathId, paramPath, self.robot.get_joint_names(), [gripperName])
+        return Path(paramPathId, paramPath, self.robot.get_joint_names(), [gripperLink])
 
     def set_velocity_limit(self, scale):
         """
@@ -255,6 +256,7 @@ class Planner:
 
         self._reset_problem()
         gripperFullname = "robot/" + gripperName
+        gripperLink = self.robot.get_gripper_link(gripperName)
 
         # Create the approach object target
         self._create_target("target", approach_distance)
@@ -314,9 +316,9 @@ class Planner:
         param_home_path = wd(self.ps.hppcorba.problem.getPath(param_home_pathId))
 
         # return paths
-        return  Path(param_pick_pathId, param_pick_path, self.robot.get_joint_names(), [gripperName]), \
-                Path(param_place_pathId, param_place_path, self.robot.get_joint_names(), [gripperName]), \
-                Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperName])
+        return  Path(param_pick_pathId, param_pick_path, self.robot.get_joint_names(), [gripperLink]), \
+                Path(param_place_pathId, param_place_path, self.robot.get_joint_names(), [gripperLink]), \
+                Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperLink])
 
 
     def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4):

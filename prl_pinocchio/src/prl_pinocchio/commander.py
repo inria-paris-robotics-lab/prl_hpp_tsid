@@ -131,6 +131,10 @@ class Commander:
             rospy.logerr("Action client not initialized. Did you call start_trajecotry() first.")
             raise AssertionError("Action client not initialized. Did you call start_trajecotry() first.")
 
+        # TODO: TO SOLVE !!
+        q_curr = [q_curr[i] for i in self._commanded_joints_indexes]
+        v_curr = [v_curr[i] for i in self._commanded_joints_indexes]
+
         # Filter joints
         q_next = [q_next[i] for i in self._commanded_joints_indexes]
         v_next = [v_next[i] for i in self._commanded_joints_indexes]
@@ -141,7 +145,7 @@ class Commander:
                                                                               JointTrajectoryPoint(positions = q_next, velocities = v_next, accelerations = dv, time_from_start = rospy.Time.from_sec(dt)),])
 
         # Make header timestamp and send goal to controller
-        jointTraj.header.stamp = rospy.Time()
+        jointTraj.header.stamp = rospy.Time(0)
         self._traj_action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
 
     def _get_joint_indexes(self, jointSubSet, jointSet, strict = True):

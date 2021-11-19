@@ -185,13 +185,15 @@ class Robot:
         return compare_configurations(q, q_curr, threshold)
 
     def create_visualizer(self):
-        from pinocchio.visualize import RVizVisualizer
-        self.pin_robot_wrapper.setVisualizer(RVizVisualizer())
-        self.pin_robot_wrapper.initViewer(loadModel=True, initRosNode=False)
+        # from pinocchio.visualize import RVizVisualizer
+        # self.pin_robot_wrapper.setVisualizer(RVizVisualizer())
+        # self.pin_robot_wrapper.initViewer(loadModel=True, initRosNode=False)
+        from pinocchio.visualize import GepettoVisualizer
+        self.pin_robot_wrapper.setVisualizer(GepettoVisualizer())
+        self.pin_robot_wrapper.initViewer(loadModel=True)
 
     def display(self, q):
         self.pin_robot_wrapper.display(q)
-
 
     def create_dof_lookup(self, new_joint_list):
         pin_model = self.pin_robot_wrapper.model
@@ -246,7 +248,7 @@ class Robot:
             new_index = res_v_new_to_pin.index(pin_index)
             res_v_pin_to_new.append(new_index)
 
-        return res_q_pin_to_new, res_q_new_to_pin, res_v_pin_to_new, res_v_new_to_pin 
+        return res_q_pin_to_new, res_q_new_to_pin, res_v_pin_to_new, res_v_new_to_pin
 
     def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
         res  = []

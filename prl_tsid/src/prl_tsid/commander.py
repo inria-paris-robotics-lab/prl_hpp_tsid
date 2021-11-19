@@ -23,10 +23,10 @@ class PathFollower:
 
         ## Create the tasks
         na_ones = np.ones(self.tsid_robot.na)
-        self.K_ee = 10
-        self.w_ee = 10
-        K_posture = 10
-        w_posture = 10
+        self.K_ee = 100
+        self.w_ee = 100
+        K_posture = 1
+        w_posture = 1
 
         # Posture task
         self.postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
@@ -88,7 +88,7 @@ class PathFollower:
             eeIndexes.append(eeIndex)
             eeTasks_names.append(eeTask_name)
             eeTasks.append(eeTask)
-            eeSamples.append(tsid.TrajectorySample(12, 6)) # Cartesian samples
+            eeSamples.append(tsid.TrajectorySample(12, 6))
 
             self.formulation.addMotionTask(eeTask, self.w_ee, 1, 0.0)
 
@@ -112,7 +112,10 @@ class PathFollower:
                        np.array([v_dot[i] for i in v_pin_to_hpp])
 
         # Loop
-        debug_i = 0
+        # # DEBUG !!
+        # q_next, v_next, _ = self.robot.get_meas_qvtau(raw = True)
+        i_print = 0
+
         while elapsed_time < path.corbaPath.length():
             # Measure the current time
             if start_time is None:
@@ -146,7 +149,7 @@ class PathFollower:
 
                 ee_acc_vec = ee_acc.vector
                 ee_vel_vec = ee_vel.vector
-                ee_pos_vec = np.concatenate((ee_pos.translation, ee_pos.rotation.flatten()))
+                ee_pos_vec = np.concatenate((ee_pos.translation, ee_pos.rotation.flatten('F')))
 
                 eeSamples[i].value(ee_pos_vec)
                 eeSamples[i].derivative(ee_vel_vec)
@@ -154,8 +157,18 @@ class PathFollower:
 
                 eeTasks[i].setReference(eeSamples[i])
 
+            # if i_print % 33 == 0:
+            #     rospy.logwarn("")
+            #     for i in range(len(eeTasks)):
+            #         rospy.logwarn(F"{eeTasks_names[i]} pos_error : {eeTasks[i].position_error}")
+            #         rospy.logwarn(F"{eeTasks_names[i]} vel_error : {eeTasks[i].velocity_error}")
+            #         rospy.logwarn(F"{eeTasks_names[i]} acc       : {eeTasks[i].getDesiredAcceleration}")
+            # i_print += 1
+
+            # # DEBUG !!
+            # q_meas, v_meas = q_next, v_next
+            # self.robot.display(np.array(q_meas))
             q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
-            self.robot.display(q)
 
             HQPData = self.formulation.computeProblemData(t, np.array(q_meas), np.array(v_meas))
             sol = self.solver.solve(HQPData)
@@ -170,22 +183,26 @@ class PathFollower:
                     print("  ee_acc_vec", eeSamples[i].second_derivative())
                 break
 
-
             dv_next = self.formulation.getAccelerations(sol)
 
             # numerical integration
             v_next = np.array(v_meas + dt*dv_next)
-            q_next = pin.integrate(self.robot.pin_robot_wrapper.model,np.array(q_meas),v_next*dt)
+            v_mean = np.array(v_meas + 0.5 * dt*dv_next)
+            q_next = pin.integrate(self.robot.pin_robot_wrapper.model, np.array(q_meas), v_mean)
+
+            # self.robot.display(np.array(q_next))
 
             # publish commands
             for commander in commanders:
-                commander.execute_step_fwd(v_next)
+                commander.execute_step_fwd(v_mean)
+                # commander.execute_step_trajecotry(q_meas, v_meas, q_next, v_next, dv_next, dt)
 
             # Wait for next step
             rate.sleep()
 
-        # Remove all the end effector tasks
+        # Remove all the end effector tasks and resize solver
         for taskname in eeTasks_names:
             self.formulation.removeTask(taskname, 0.0)
-        # Resize solver
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
+        # # DEBUG !!
+        # self.eeTasks = eeTasks

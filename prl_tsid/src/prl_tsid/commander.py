@@ -22,23 +22,22 @@ class PathFollower:
         self.robot.display(q0)
 
         ## Create the tasks
-        na_ones = np.ones(self.tsid_robot.na)
-        self.K_ee = 100
-        self.w_ee = 100
+        self.K_ee = 10
+        self.w_ee = 10
         K_posture = 1
         w_posture = 1
 
         # Posture task
         self.postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
-        self.postureTask.setKp(K_posture * na_ones)
-        self.postureTask.setKd(2.0 * np.sqrt(K_posture) * na_ones)
+        self.postureTask.setKp(K_posture * np.ones(self.tsid_robot.na))
+        self.postureTask.setKd(2.0 * np.sqrt(K_posture) * np.ones(self.tsid_robot.na))
 
         self.postureSample = tsid.TrajectorySample(len(q0), len(v0))
 
         self.formulation.addMotionTask(self.postureTask, w_posture, 1, 0.0)
 
-        # End effector task # Will be defined in execute as it varies on the end effectors
-        self.na_ones = na_ones
+        # End effector tasks
+        # Will be defined in execute_path() as it varies on the end effectors
 
         # Joint torque bounds task
         self.actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", self.tsid_robot)
@@ -81,9 +80,9 @@ class PathFollower:
 
             eeTask_name = "ee-task-" + targetFrame
             eeTask = tsid.TaskSE3Equality(eeTask_name , self.tsid_robot, targetFrame)
-            eeTask.setKp(self.K_ee* self.na_ones)
-            eeTask.setKd(2.0 * np.sqrt(self.K_ee) * self.na_ones)
-            eeTask.useLocalFrame(True) # Represent jacobian in world frame
+            eeTask.setKp(self.K_ee* np.ones(6))
+            eeTask.setKd(2.0 * np.sqrt(self.K_ee) * np.ones(6))
+            eeTask.useLocalFrame(True) # Represent jacobian in local frame
 
             eeIndexes.append(eeIndex)
             eeTasks_names.append(eeTask_name)
@@ -99,7 +98,7 @@ class PathFollower:
         self.jointBoundsTask.setTimeStep(dt)
 
         # Prepare the loop
-        rate = rospy.Rate(2. / dt)
+        rate = rospy.Rate(1. / dt)
         elapsed_time = 0.0
         start_time = None
 
@@ -111,11 +110,12 @@ class PathFollower:
                        np.array([v[i] for i in v_pin_to_hpp]), \
                        np.array([v_dot[i] for i in v_pin_to_hpp])
 
-        # Loop
-        # # DEBUG !!
-        # q_next, v_next, _ = self.robot.get_meas_qvtau(raw = True)
-        i_print = 0
+        # Initialize measures
+        q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
+        q_next, v_next = q_meas, v_meas = np.array(q_meas), np.array(v_meas)
 
+        # Loop
+        i_print = 0
         while elapsed_time < path.corbaPath.length():
             # Measure the current time
             if start_time is None:
@@ -165,12 +165,16 @@ class PathFollower:
             #         rospy.logwarn(F"{eeTasks_names[i]} acc       : {eeTasks[i].getDesiredAcceleration}")
             # i_print += 1
 
-            # # DEBUG !!
-            # q_meas, v_meas = q_next, v_next
-            # self.robot.display(np.array(q_meas))
-            q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
+            # Feedback
+            q_meas, _, _ = self.robot.get_meas_qvtau(raw = True)
+            q_meas = np.array(q_meas)
 
-            HQPData = self.formulation.computeProblemData(t, np.array(q_meas), np.array(v_meas))
+            # Because we control the robot on velocity, a velocity feedback would destabilised the control,
+            # thus we supposed that the velocity is tracked perfectly
+            v_meas = v_next
+
+            # Solve
+            HQPData = self.formulation.computeProblemData(t, q_meas, v_meas)
             sol = self.solver.solve(HQPData)
             if(sol.status!=0):
                 print(F"Time  {t}  QP problem could not be solved! Error code: {sol.status}")
@@ -186,11 +190,9 @@ class PathFollower:
             dv_next = self.formulation.getAccelerations(sol)
 
             # numerical integration
-            v_next = np.array(v_meas + dt*dv_next)
-            v_mean = np.array(v_meas + 0.5 * dt*dv_next)
-            q_next = pin.integrate(self.robot.pin_robot_wrapper.model, np.array(q_meas), v_mean)
-
-            # self.robot.display(np.array(q_next))
+            v_next = v_meas + dt*dv_next
+            v_mean = (v_next + v_meas) / 2
+            q_next = pin.integrate(self.robot.pin_robot_wrapper.model, q_meas, v_mean * dt)
 
             # publish commands
             for commander in commanders:
@@ -204,5 +206,3 @@ class PathFollower:
         for taskname in eeTasks_names:
             self.formulation.removeTask(taskname, 0.0)
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
-        # # DEBUG !!
-        # self.eeTasks = eeTasks

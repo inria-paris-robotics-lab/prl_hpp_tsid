@@ -1,6 +1,8 @@
+import rospy
+import xml.etree.ElementTree as ET
+
 from prl_pinocchio.robot import Robot
 from prl_pinocchio.commander import Commander
-
 """
  Create instances of Robot dedicated for the Double-UR5 robot.
 """
@@ -20,10 +22,25 @@ class UR5_Robot(Robot):
         self.left_arm_joints  = list(filter(lambda joint: joint.lower().find("left")  != -1 and joint.lower().find("gripper") == -1, joints))
         self.right_arm_joints = list(filter(lambda joint: joint.lower().find("right") != -1 and joint.lower().find("gripper") == -1, joints))
 
+    def get_gripper_link(self, gripper):
+        srdf = ET.fromstring(self.get_srdf_explicit())
+
+        gripper = srdf.find(".//gripper[@name='l_gripper']")
+        if gripper is None:
+            rospy.logerr(F"Could not find gripper {gripper} in robot srdf")
+            return None
+
+        link = gripper.find("link")
+        if link is None:
+            rospy.logwarn(F"No link information found in srdf for gripper {gripper}")
+            return None
+
+        return link.attrib["name"]
+
 robot = UR5_Robot("prl_ur5_description", "joint_states")
 
 # Arbitrary value (as velocity and effort limits are already defined in the model)
 robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180°/s^2
 
-commander_left_arm = Commander(robot, robot.left_arm_joints, "/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")
-commander_right_arm = Commander(robot, robot.right_arm_joints, "/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory")
+commander_left_arm = Commander(robot, robot.left_arm_joints, trajectory_action_name="/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_action_name="/left_arm/joint_group_vel_controller")
+commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_action_name="/right_arm/joint_group_vel_controller")

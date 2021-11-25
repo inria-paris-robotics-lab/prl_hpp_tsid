@@ -10,7 +10,7 @@ commander_left_arm.start_fwd()
 commander_right_arm.start_fwd()
 
 # TSID Robot
-tsid_robot = tsid.RobotWrapper(robot.pin_robot_wrapper.model, True, False)
+tsid_robot = tsid.RobotWrapper(robot.pin_robot_wrapper.model, tsid.FIXED_BASE_SYSTEM, False)
 
 # Base configurations
 q0 = np.zeros(tsid_robot.nq)
@@ -52,14 +52,10 @@ solver.resize(formulation.nVar, formulation.nEq, formulation.nIn)
 
 robot.create_visualizer()
 
-# Debug
-from std_msgs.msg import Float64MultiArray, MultiArrayDimension
-pub_err_vel = rospy.Publisher('/tsid/err_vel', Float64MultiArray, queue_size=10)
-pub_err_pos = rospy.Publisher('/tsid/err_pos', Float64MultiArray, queue_size=10)
-
 i = 0
 r = rospy.Rate(2. / dt)
 t_start = rospy.Time.now()
+v_next = v0
 print("Start the loop")
 while not rospy.is_shutdown():
     t = rospy.Time.now() - t_start
@@ -73,8 +69,8 @@ while not rospy.is_shutdown():
     samplePosture.second_derivative(np.array([0 for _ in v_ref]))
     postureTask.setReference(samplePosture)
 
-    q_meas, v_meas, _ = robot.get_meas_qvtau(raw = True)
-
+    q_meas, _, _ = robot.get_meas_qvtau(raw = True)
+    v_meas = v_next # For stability purpose
 
     HQPData = formulation.computeProblemData(t.to_sec(), np.array(q_meas), np.array(v_meas))
     sol = solver.solve(HQPData)
@@ -91,9 +87,6 @@ while not rospy.is_shutdown():
     v_next = np.array(v_meas + 1.0 * dt*dv_next)
     v_mean = np.array(v_meas + 0.5 * dt*dv_next)
     q_next = pin.integrate(robot.pin_robot_wrapper.model, np.array(q_meas), v_mean*dt)
-
-    pub_err_vel.publish(Float64MultiArray(data=(v_mean-v_meas).tolist()))
-    pub_err_pos.publish(Float64MultiArray(data=(q_ref-q_meas).tolist()))
 
     # robot.display(q_next)
     # q_meas, v_meas = q_next, v_next

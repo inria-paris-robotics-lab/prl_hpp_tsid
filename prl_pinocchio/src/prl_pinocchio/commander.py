@@ -141,7 +141,7 @@ class Commander:
         dv = [dv[i] for i in self._commanded_joints_indexes]
 
         # Create ROS message
-        jointTraj = JointTrajectory(joint_names = self.jointsName, points = [ JointTrajectoryPoint(positions = q_curr, velocities = v_curr, accelerations = dv, time_from_start = rospy.Time.from_sec(0)),
+        jointTraj = JointTrajectory(joint_names = self.jointsName, points = [ # JointTrajectoryPoint(positions = q_curr, velocities = v_curr, accelerations = dv, time_from_start = rospy.Time.from_sec(0)),
                                                                               JointTrajectoryPoint(positions = q_next, velocities = v_next, accelerations = dv, time_from_start = rospy.Time.from_sec(dt)),])
 
         # Make header timestamp and send goal to controller

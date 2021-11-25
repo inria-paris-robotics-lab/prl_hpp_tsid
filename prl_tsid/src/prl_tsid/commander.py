@@ -7,7 +7,7 @@ class PathFollower:
     def __init__(self, robot):
         ## Init the problem
         self.robot = robot
-        self.tsid_robot = tsid.RobotWrapper(robot.pin_robot_wrapper.model, True, False)
+        self.tsid_robot = tsid.RobotWrapper(robot.pin_robot_wrapper.model, tsid.FIXED_BASE_SYSTEM, False)
         self.formulation = tsid.InverseDynamicsFormulationAccForce("tsid", self.tsid_robot, False)
 
         ## Some default values
@@ -168,10 +168,11 @@ class PathFollower:
             # Feedback
             q_meas, _, _ = self.robot.get_meas_qvtau(raw = True)
             q_meas = np.array(q_meas)
+            v_meas = v_next # For stability purpose
 
             # Because we control the robot on velocity, a velocity feedback would destabilised the control,
             # thus we supposed that the velocity is tracked perfectly
-            v_meas = v_next
+            # v_meas = v_next
 
             # Solve
             HQPData = self.formulation.computeProblemData(t, q_meas, v_meas)

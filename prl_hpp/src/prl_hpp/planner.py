@@ -10,7 +10,6 @@ from prl_hpp.tools.instate_planner import InStatePlanner
 
 from prl_hpp.tools.hpp_robots import TargetRobotStrings
 from prl_hpp.tools.hpp_robots import HppRobot
-from pinocchio import XYZQUATToSE3, SE3ToXYZQUATtuple
 
 # import os
 # loadServerPlugin ("corbaserver", os.environ.get('CONDA_PREFIX')+"/lib/hppPlugins/manipulation-corba.so")
@@ -49,12 +48,23 @@ class Planner:
 
         self.ps.setErrorThreshold (1e-3)
         self.ps.setMaxIterProjection (40)
+        self.set_planning_timeout(10.0)
 
         # Time parametrization
         self.velocity_scale = 1.0
         self.acceleration_scale = 1.0
 
         self.lockJointConstraints = []
+
+    def set_planning_timeout(self, timeout):
+        """
+        Set the maximum duration the planner has to find a solution
+
+        Parameters
+        ----------
+            timeout (float): Timeout duration (in s.)
+        """
+        self.ps.setTimeOutPathPlanning(timeout)
 
     def lock_joints(self, jointNames, jointValues = None, constraintNames = None, lockName = "locked_joints"):
         """
@@ -98,7 +108,7 @@ class Planner:
         self.lockJointConstraints.extend(constraintNames)
         return constraintNames
 
-    def make_gripper_approach(self, gripperName, position, orientation, approach_distance = 0.1, q_start = None, validate = True):
+    def make_gripper_approach(self, gripperName, position, orientation, approach_distance = 0.1, q_start = None, *, validate = True, do_not_plan = False):
         """
         Find a path that leads to the gripper at a certain pose with a certain approach direction.
 
@@ -113,7 +123,7 @@ class Planner:
             approach_distance (float): Distance from which the gripper should make a quasi-straight to reach the goal pose.
             q_start (foat[]): The initial configuration of the robot. (If unspecified, the initial configuration is set to the current one.)
             validate (bool): If true, will check if the constraint graph generated is valid.
-
+            do_not_plan (bool): If true, will not plan, but will generate the constraint graph with goal configurations etc. (useful to check if a goal pose is 'do-able'. Exception will be thrown if not)
         Returns
         -------
             path (Path): the path found
@@ -157,14 +167,19 @@ class Planner:
                 if res_path:
                     q_goals.append([q_pre, q_grasp])
                     self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
+
         assert len(q_goals) > 0, "No goal configuration found"
+
+        # Check if should plan or not
+        if do_not_plan:
+            return
 
         # Prepare solving in-state
         instatePlanner = InStatePlanner (self.ps)
         instatePlanner.setEdge(cg, "Loop | f")
         instatePlanner.optimizerTypes = [ "RandomShortcut" ]
         # instatePlanner.maxIterPathPlanning = 600
-        # instatePlanner.timeOutPathPlanning = 10.
+        instatePlanner.timeOutPathPlanning = self.ps.getTimeoutPlanning()
 
         # Solve the problem
         path = instatePlanner.computePath(q_init, [q_pre for q_pre, q_grasp in q_goals], resetRoadmap=True)
@@ -214,7 +229,7 @@ class Planner:
         """
         self.acceleration_scale = scale
 
-    def make_pick_and_place(self, gripperName, pose_pick, pose_place, approach_distance = 0.1, q_start = None, q_end = None, validate = True):
+    def make_pick_and_place(self, gripperName, pose_pick, pose_place, approach_distance = 0.1, q_start = None, q_end = None, *, validate = True):
         """
         Find 3 paths to pick an object, place the object and go to end position.
 
@@ -233,7 +248,7 @@ class Planner:
 
         Returns
         -------
-            paths (Path[3]): the path picking, placing and homing paths.
+            paths (Path[3 (or 0)]): the path picking, placing and homing paths. If he list is empty, no path was found in the timeout duration.
 
         Raises
         ------
@@ -280,7 +295,9 @@ class Planner:
         self.ps.addGoalConfig(q_goal)
 
         # Solve the problem
-        self.ps.solve()
+        success = self._safe_solve()
+        if not success:
+            return [] # No path found
         pathId = self.ps.numberPaths()-1
 
         # Optimize path
@@ -389,3 +406,14 @@ class Planner:
             assert graphValidation.validate(cgraph), graphValidation.str()
 
         return cg
+
+    def _safe_solve(self):
+        """
+        Solve the problem and catch timeout exception
+        """
+        try:
+            self.ps.solve()
+        except Error as e:
+            # print(e.msg)
+            return False
+        return True

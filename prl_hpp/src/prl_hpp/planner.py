@@ -2,10 +2,9 @@ from hpp.corbaserver.manipulation import ProblemSolver, Rule, Constraints, Const
 from hpp.gepetto.manipulation import ViewerFactory
 from hpp.gepetto import PathPlayer
 from hpp.corbaserver import loadServerPlugin
-from hpp.quaternion import Quaternion
 from hpp_idl.hpp import Error
 
-from prl_hpp.tools.utils import compare_configurations, wd
+from prl_hpp.tools.utils import compare_configurations, compare_poses, euler_to_quaternion, wd
 from prl_hpp.tools.instate_planner import InStatePlanner
 
 from prl_hpp.tools.hpp_robots import TargetRobotStrings
@@ -156,6 +155,8 @@ class Planner:
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
         assert res_init, "Initial configuration is not valid"
 
+        self.v(q_init)
+
         # Generate pair goal configuration (pre-graps, grasp)
         q_goals = []
         for _ in range(100):
@@ -179,7 +180,7 @@ class Planner:
         instatePlanner.setEdge(cg, "Loop | f")
         instatePlanner.optimizerTypes = [ "RandomShortcut" ]
         # instatePlanner.maxIterPathPlanning = 600
-        instatePlanner.timeOutPathPlanning = self.ps.getTimeoutPlanning()
+        instatePlanner.timeOutPathPlanning = self.ps.getTimeOutPathPlanning()
 
         # Solve the problem
         path = instatePlanner.computePath(q_init, [q_pre for q_pre, q_grasp in q_goals], resetRoadmap=True)
@@ -191,7 +192,7 @@ class Planner:
         q_end = path.end()
         q_end_grasp = None
         for q_pre, q_grasp in q_goals:
-            if(compare_configurations(q_pre, q_end)):
+            if(compare_configurations(self.robot.pin_robot_wrapper.model, q_pre, q_end)):
                 q_end_grasp = q_grasp
                 break
         assert q_end_grasp != None, "Error while concatenating the last part of the path."
@@ -266,8 +267,8 @@ class Planner:
         pose_place[1] = Planner._convert_orientation(pose_place[1])
 
         # Merge postion and orientation in one list
-        pose_pick = sum(pose_pick, [])
-        pose_place = sum(pose_place, [])
+        pose_pick = pose_pick[0] + pose_pick[1]
+        pose_place = pose_place[0] + pose_place[1]
 
         self._reset_problem()
         gripperFullname = "robot/" + gripperName
@@ -287,6 +288,8 @@ class Planner:
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
         assert res_init, "Initial configuration is not valid"
         self.ps.setInitialConfig(q_init)
+
+        self.v(q_init)
 
         # Add goal config
         self.ps.resetGoalConfigs()
@@ -312,9 +315,9 @@ class Planner:
         place_index = None
         for i, q in enumerate(wps):
             target_pos = q[-7:]
-            if(compare_configurations(target_pos, pose_pick)):
+            if(compare_poses(target_pos, pose_pick)):
                 pick_index = i
-            if(not compare_configurations(target_pos, pose_place)):
+            if(not compare_poses(target_pos, pose_place)): # As soon as the target reached the goal position, the place is reached
                 place_index = i+1
 
         # Create sub path
@@ -376,9 +379,7 @@ class Planner:
         Return the orientation as quaternions
         """
         if(len(orientation) == 3):
-            quat = Quaternion()
-            quat.fromRPY(*orientation)
-            orientation = list(quat.toTuple())
+            return euler_to_quaternion(orientation)
         return orientation
 
     def _create_path(self, waypoints):

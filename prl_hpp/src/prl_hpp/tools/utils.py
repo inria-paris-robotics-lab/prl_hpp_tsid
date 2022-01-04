@@ -1,5 +1,88 @@
 import re
 import rospkg
+import pinocchio as pin, numpy as np
+
+def compare_configurations(model, q_1, q_2, threshold = 0.001):
+    """
+    Check wether two configurations are similar enough.
+
+    Compare the distance, between the two configuration, to a threshold.
+
+    Parameters
+    ----------
+        model (pin.model): The model of the robot.
+        q_1 (float[]): A configuration.
+        q_2 (float[]): Another configuration.
+
+    Optionnals parameters:
+    ----------------------
+        threshold (foat): Error tolerance.
+
+    Returns
+    -------
+        isEqual (bool): True if the two configurations are close enough.
+    """
+    return pin.distance(model, q_1, q_2) < threshold
+
+def compare_poses(pose_1, pose_2, threshold = 0.001):
+    """
+    Check wether two poses are close enough.
+
+    Compare the SE3 distance between the two poses.
+
+    Parameters
+    ----------
+        pose_1 ([float[6 or 7]]): Position and orientation (euler or quaternion) of a pose.
+        pose_2 ([float[6 or 7]): Position and orientation (euler or quaternion) of the other pose.
+
+    Optionnals parameters:
+    ----------------------
+        threshold (foat): Error tolerance.
+
+    Returns
+    -------
+        isEqual (bool): True if the two poses are close enough.
+    """
+    if(len(pose_1) == 6):
+        pose_1 = pose_1[:3] + euler_to_quaternion(pose_1[-3:])
+
+    if(len(pose_2) == 6):
+        pose_2 = pose_2[:3] + euler_to_quaternion(pose_2[-3:])
+
+    pose_1 = pin.XYZQUATToSE3(np.array(pose_1))
+    pose_2 = pin.XYZQUATToSE3(np.array(pose_2))
+
+    vw = pin.log6(pose_1.inverse() * pose_2)
+
+    return np.linalg.norm([np.linalg.norm(vw.angular), np.linalg.norm(vw.linear)]) < threshold
+
+def euler_to_quaternion(euler):
+    """
+    Convert euler angles to quaternion.
+
+    Parameters
+    ----------
+        euler (float[3]): Euler angles.
+
+    Returns
+    -------
+        quat (float[4]): Quaternion.
+    """
+    return list(pin.SE3ToXYZQUAT(pin.SE3(pin.rpy.rpyToMatrix(np.array(euler)), np.zeros(3))))[-4:]
+
+def quaternion_to_euler(quat):
+    """
+    Convert a quaternion to euler angles.
+
+    Parameters
+    ----------
+        quat (float[4]): The quaternion to convert.
+
+    Returns
+    -------
+        euler (float[3]): The corresponding euler angles.
+    """
+    return list(pin.rpy.matrixToRpy(pin.XYZQUATToSE3(np.array([0]*3 + quat)).rotation))
 
 def replace_path_to_absolute(str):
     """
@@ -22,37 +105,20 @@ def replace_path_to_absolute(str):
     return str
 
 def replace_placeholders(str, placeHolder, replacement):
-    return str.replace(placeHolder, replacement)
-
-def compare_configurations(q_1, q_2, threshold = 0.01):
     """
-    Check wether two configurations are similar enough.
-
-    Compare the absolute difference of the position to certain tolerance, for every joints.
+    Replace all the occurences of a substring in a string.
 
     Parameters
     ----------
-        q_1 (float[]): A configuration.
-        q_2 (float[]): Another configuration.
-
-    Optionnals parameters:
-    ----------------------
-        threshold (foat): Error tolerance for each joint.
+        str (str): The string to be modified.
+        placeHolder (str): The substring to replace.
+        replacement (str): The replacement for the substring.
 
     Returns
     -------
-        isEqual (bool): True if the two configurations are close enough.
-
-    Raises
-    ------
-        AssertionError: If configurations sizes are different.
+        str (str): The new string with the substrings replaced.
     """
-    assert len(q_1) == len(q_2), "Different configuration size: " + str(len(q_1)) + " != " + str(len(q_2))
-    for i in range(len(q_1)):
-        if(abs(q_1[i] - q_2[i]) > threshold):
-            return False
-    return True
-
+    return str.replace(placeHolder, replacement)
 
 def wd(o):
     """

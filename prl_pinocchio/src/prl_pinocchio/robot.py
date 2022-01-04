@@ -113,7 +113,7 @@ class Robot:
 
         return q, v, tau
 
-    def get_meas_pose(self, jointName, q=None):
+    def get_joint_pose(self, jointName, q=None):
         """
         Get the current 6D pose of a joint.
 
@@ -140,12 +140,44 @@ class Robot:
 
         q = numpy.matrix(q).T
 
-        self.pin_robot_wrapper.forwardKinematics(q)
-
         frame_index = self.pin_robot_wrapper.model.getJointId(jointName)
         assert frame_index < len(self.pin_robot_wrapper.data.oMi), "Joint name not found in robot model : " + jointName
 
-        oMf = self.pin_robot_wrapper.data.oMi[frame_index]
+        oMi = self.pin_robot_wrapper.placement(q, frame_index)
+        xyz_quat = pinocchio.SE3ToXYZQUATtuple(oMi)
+        return xyz_quat
+
+    def get_frame_pose(self, frameName, q=None):
+        """
+        Get the current 6D pose of a frame.
+
+        Compute the forward kinematic from the configuration.
+
+        Parameters:
+        ----------------------
+            frameName (str): Name of the frame to read the pose of.
+
+        Optionnals parameters:
+        ----------------------
+            q (float[]): Configuration of the robot. If None, the current configuration will be read from 'joint_state_topic'.
+
+        Returns
+        -------
+            xyz_quat (float[3+4]): position and orientation (as a quaternion) coordinates concatenanted.
+
+        Raises
+        ------
+            AssertionError: If frameName is not in the robot model.
+        """
+        if(q==None):
+            q = self.get_meas_q()
+
+        q = numpy.matrix(q).T
+
+        frame_index = self.pin_robot_wrapper.model.getFrameId(frameName)
+        assert frame_index < len(self.pin_robot_wrapper.data.oMf), "Frame name not found in robot model : " + frameName
+
+        oMf = self.pin_robot_wrapper.framePlacement(q, frame_index)
         xyz_quat = pinocchio.SE3ToXYZQUATtuple(oMf)
         return xyz_quat
 

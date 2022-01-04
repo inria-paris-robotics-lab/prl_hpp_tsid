@@ -10,18 +10,18 @@
       </material>
     </visual>
     <visual>
-      <origin xyz=".0125 0 0" rpy="0 0 0" />
+      <origin xyz="0 0 -.0125" rpy="0 0 0" />
       <geometry>
-        <box size="0.025 0.01 0.050"/>
+        <box size="0.050 0.01 0.025"/>
       </geometry>
       <material name="purple">
         <color rgba="1 0 1 0.8"/>
       </material>
     </visual>
     <visual>
-      <origin xyz=".0125 0.0125 0" rpy="0 0 0" />
+      <origin xyz="0 .0125 -0.0125" rpy="0 0 0" />
       <geometry>
-        <box size="0.025 0.025 0.01"/>
+        <box size="0.01 0.025 0.025"/>
       </geometry>
       <material name="purple">
         <color rgba="1 0 1 0.8"/>

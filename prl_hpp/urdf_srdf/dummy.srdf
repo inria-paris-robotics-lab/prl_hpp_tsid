@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot name="dummy">
-  <handle name="handle" clearance="{CLEARANCE}}">
-    <position> 0 0 0 0 0 0 1 </position>
+  <handle name="handle" clearance="{CLEARANCE}">
+    <position> 0 0 0 0.5 -0.5 -0.5 -0.5 </position>
     <link name="base_link"/>
   </handle>
 </robot>

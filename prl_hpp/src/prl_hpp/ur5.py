@@ -1,5 +1,4 @@
 import rospy
-rospy.init_node("HPP", anonymous=True)
 
 from prl_pinocchio.ur5 import robot, commander_left_arm, commander_right_arm
 from prl_hpp.planner import Planner

@@ -1,5 +1,5 @@
 from hpp.corbaserver.manipulation.robot import Robot as Parent
-from prl_hpp.tools.utils import replace_path_to_absolute, replace_placeholders
+from prl_pinocchio.tools.utils import replace_path_to_absolute, replace_placeholders
 
 class HppRobot(Parent):
     """Robot in term of what HPP need for its planning """

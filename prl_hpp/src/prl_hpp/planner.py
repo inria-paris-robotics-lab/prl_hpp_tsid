@@ -4,7 +4,8 @@ from hpp.gepetto import PathPlayer
 from hpp.corbaserver import loadServerPlugin
 from hpp_idl.hpp import Error
 
-from prl_hpp.tools.utils import compare_configurations, compare_poses, euler_to_quaternion, wd
+from prl_pinocchio.tools.utils import compare_configurations, compare_poses, euler_to_quaternion
+from prl_hpp.tools.utils import wd
 from prl_hpp.tools.instate_planner import InStatePlanner
 
 from prl_hpp.tools.hpp_robots import TargetRobotStrings

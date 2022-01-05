@@ -150,12 +150,13 @@ class Planner:
         q_start = q_start + (position + orientation)
 
         # Create the ConstraintGraph
-        cg = self._create_simple_cg([gripperFullname], ['target'], [['target/handle']], validate)
+        cg = self._create_simple_cg([gripperFullname], ['target'], [['target/handle']], validate, replace_target_constraints=True)
 
         # Project the initial configuration in the initial node
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
         assert res_init, "Initial configuration is not valid"
 
+        # Display start configuration
         self.v(q_init)
 
         # Generate pair goal configuration (pre-graps, grasp)
@@ -360,7 +361,7 @@ class Planner:
             self.graph.deleteGraph('graph')
         except Error:
             pass
-        # self.ps.clearRoadmap()
+        self.ps.clearRoadmap()
         self.hpp_robot.__init__(self.robot.pin_robot_wrapper.model.name, "robot", self.robot.get_urdf_explicit(), self.robot.get_srdf_explicit())
         self.ps.resetGoalConfigs()
 
@@ -389,7 +390,8 @@ class Planner:
             self.ps.appendDirectPath(pathId, q, False)
         return pathId
 
-    def _create_simple_cg(self, grippers, targets, targets_handles, validate):
+    def _create_simple_cg(self, grippers, targets, targets_handles, validate, *, replace_target_constraints = False):
+        # Create graph using ConstraintGraphFactory
         cg = ConstraintGraph (self.hpp_robot, 'graph')
         factory = ConstraintGraphFactory (cg)
         factory.setGrippers (grippers)
@@ -397,11 +399,29 @@ class Planner:
         factory.setRules ([ Rule([".*"], [".*"], True), ])
         factory.generate ()
         cg.addConstraints (graph=True, constraints= Constraints(numConstraints = self.lockJointConstraints))
+
+        cproblem = wd(self.ps.client.basic.problem.getProblem())
+
+        # Replace box locked joints constraint of the targets with locked transform constraint to avoid later problems
+        if(replace_target_constraints):
+            cgraph = cproblem.getConstraintGraph()
+            for target in targets:
+                constrain_name = F'implicit Transform {target}/root_joint'
+                self.ps.client.basic.problem.createTransformationR3xSO3Constraint(constrain_name, '',F'{target}/root_joint', [0,0,0, 0,0,0,1], [0,0,0, 0,0,0,1], [True, True, True, True, True, True,])
+                self.ps.setConstantRightHandSide(constrain_name, False)
+                for gripper in grippers: # TODO: Test this nested loop inner code in the case of multiple grippers and targets (is there any edges that haven't been updated ?)
+                    for edge_name_suffix in [F'> {target}/handle | f_01', F'> {target}/handle | f_12', F'< {target}/handle | 0-0_10', F'< {target}/handle | 0-0_21']:
+                        edge_name = gripper + ' ' + edge_name_suffix
+                        edge_nb = cg.edges[edge_name]
+                        edge = cgraph.get(edge_nb)
+                        edge.resetNumericalConstraints() # TODO: To be removed ? (What if multiple grippers and objects : are we deleting too much ?)
+                        cg.addConstraints(edge=edge_name, constraints = Constraints(numConstraints=[constrain_name]))
+
+        # Initialize
         cg.initialize()
 
         # Validate constraint graph
         if(validate):
-            cproblem = self.ps.hppcorba.problem.getProblem()
             cgraph = cproblem.getConstraintGraph()
             cgraph.initialize()
             graphValidation = self.ps.client.manipulation.problem.createGraphValidation()

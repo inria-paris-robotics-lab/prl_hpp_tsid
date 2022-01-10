@@ -1,6 +1,7 @@
 import re
 import rospkg
-import pinocchio as pin, numpy as np
+import pinocchio as pin
+import numpy as np
 
 def compare_configurations(model, q_1, q_2, threshold = 0.001):
     """
@@ -22,7 +23,7 @@ def compare_configurations(model, q_1, q_2, threshold = 0.001):
     -------
         isEqual (bool): True if the two configurations are close enough.
     """
-    return pin.distance(model, q_1, q_2) < threshold
+    return pin.distance(model, np.array(q_1), np.array(q_2)) < threshold
 
 def compare_poses(pose_1, pose_2, threshold = 0.001):
     """

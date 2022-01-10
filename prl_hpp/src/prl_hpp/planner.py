@@ -181,8 +181,9 @@ class Planner:
         instatePlanner = InStatePlanner (self.ps)
         instatePlanner.setEdge(cg, "Loop | f")
         instatePlanner.optimizerTypes = [ "RandomShortcut" ]
+        # # Don't set any timeout so the planner stops as soon as it finds a solution
         # instatePlanner.maxIterPathPlanning = 600
-        instatePlanner.timeOutPathPlanning = self.ps.getTimeOutPathPlanning()
+        # instatePlanner.timeOutPathPlanning = self.ps.getTimeOutPathPlanning()
 
         # Solve the problem
         path = instatePlanner.computePath(q_init, [q_pre for q_pre, q_grasp in q_goals], resetRoadmap=True)
@@ -194,7 +195,7 @@ class Planner:
         q_end = path.end()
         q_end_grasp = None
         for q_pre, q_grasp in q_goals:
-            if(compare_configurations(self.robot.pin_robot_wrapper.model, q_pre, q_end)):
+            if(compare_configurations(self.robot.pin_robot_wrapper.model, q_pre[:-7], q_end[:-7])):
                 q_end_grasp = q_grasp
                 break
         assert q_end_grasp != None, "Error while concatenating the last part of the path."
@@ -412,12 +413,13 @@ class Planner:
                 for gripper in grippers: # TODO: Test this nested loop inner code in the case of multiple grippers and targets (is there any edges that haven't been updated ?)
                     for edge_name_suffix in [F'> {target}/handle | f_01', F'> {target}/handle | f_12', F'< {target}/handle | 0-0_10', F'< {target}/handle | 0-0_21']:
                         edge_name = gripper + ' ' + edge_name_suffix
-                        edge_nb = cg.edges[edge_name]
-                        edge = cgraph.get(edge_nb)
-                        edge.resetNumericalConstraints() # TODO: To be removed ? (What if multiple grippers and objects : are we deleting too much ?)
+                        # edge_nb = cg.edges[edge_name]
+                        # edge = cgraph.get(edge_nb)
+                        # edge.resetNumericalConstraints() # TODO: To be removed ? (What if multiple grippers and objects : are we deleting too much ?)
                         cg.addConstraints(edge=edge_name, constraints = Constraints(numConstraints=[constrain_name]))
 
         # Initialize
+        factory.generate ()
         cg.initialize()
 
         # Validate constraint graph

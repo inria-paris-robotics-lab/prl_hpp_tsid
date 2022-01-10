@@ -214,7 +214,7 @@ class Robot:
             AssertionError: If the desired configuration size doesn't match.
         """
         q_curr = self.get_meas_q()
-        return compare_configurations(q, q_curr, threshold)
+        return compare_configurations(self.pin_robot_wrapper.model, q, q_curr, threshold)
 
     def create_visualizer(self):
         # from pinocchio.visualize import RVizVisualizer

@@ -373,6 +373,8 @@ class Planner:
         self.ps.setParameter("SimpleTimeParameterization/safety", self.velocity_scale) # velocity limit factor
         self.ps.setParameter("SimpleTimeParameterization/order", 2)
         self.ps.setParameter("SimpleTimeParameterization/maxAcceleration", self.robot.MAX_JOINT_ACC * self.acceleration_scale)
+        # self.ps.setParameter("ManipulationPlanner/extendStep", 0.7)
+        # self.ps.setParameter("SteeringMethod/Carlike/turningRadius", 0.05)
 
         self.ps.optimizePath(pathId)
         return self.ps.numberPaths() -1

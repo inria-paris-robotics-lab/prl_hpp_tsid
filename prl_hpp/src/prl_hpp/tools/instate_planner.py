@@ -99,7 +99,7 @@ class InStatePlanner:
                 # path = wd(optimizer.optimize(path))
                 from hpp.corbaserver.tools import equals
                 if not equals(path, optpath):
-                    path = wd(optpath)
+                    path = wd(optpath) # Do something to avoid corba error
             except HppError as e:
                 print("could not optimize", e)
         return path

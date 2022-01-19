@@ -77,16 +77,21 @@ class InStatePlanner:
 
         if resetRoadmap or not hasattr(self, 'roadmap'):
             self.createEmptyRoadmap()
-        self.planner = wd(self.ps.hppcorba.problem.createPathPlanner(
-            self.plannerType,
-            self.cproblem,
-            self.roadmap))
+        self.planner = wd(self.ps.hppcorba.problem.createPathPlanner(self.plannerType, self.cproblem, self.roadmap))
+
+        self.planner.stopWhenProblemIsSolved(True)
+        self.planner.maxIterations(-1)
+        self.planner.timeOut(float("inf"))
         if self.maxIterPathPlanning:
             self.planner.maxIterations(self.maxIterPathPlanning)
         if self.timeOutPathPlanning:
             self.planner.timeOut(self.timeOutPathPlanning)
-        if self.maxIterPathPlanning is None and self.timeOutPathPlanning is None:
-            self.planner.stopWhenProblemIsSolved(True)
+        if self.maxIterPathPlanning or self.timeOutPathPlanning:
+            self.planner.stopWhenProblemIsSolved(False)
+            print("InstatePlanner do not stop when problem is solved !")
+            print("timeOutPathPlanning", self.timeOutPathPlanning)
+            print("maxIterPathPlanning", self.maxIterPathPlanning)
+
         path = wd(self.planner.solve())
         for optType in self.optimizerTypes:
             optimizer = wd(self.ps.hppcorba.problem.createPathOptimizer(optType, self.manipulationProblem))
@@ -102,21 +107,4 @@ class InStatePlanner:
                     path = wd(optpath) # Do something to avoid corba error
             except HppError as e:
                 print("could not optimize", e)
-        return path
-
-    def timeParameterization(self, path):
-        for optType in [ "EnforceTransitionSemantic", "SimpleTimeParameterization" ]:
-            optimizer = wd(self.ps.hppcorba.problem.createPathOptimizer(optType, self.manipulationProblem))
-            try:
-                optpath = optimizer.optimize(path)
-                # optimize can return path if it couldn't find a better one.
-                # In this case, we have too different client refering to the same servant.
-                # thus the following code deletes the old client, which triggers deletion of
-                # the servant and the new path points to nothing...
-                # path = wd(optimizer.optimize(path))
-                from hpp.corbaserver.tools import equals
-                if not equals(path, optpath):
-                    path = wd(optpath)
-            except HppError as e:
-                print("could not time parameterize", e)
         return path

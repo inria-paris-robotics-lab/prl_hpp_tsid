@@ -2,7 +2,7 @@ from hpp.corbaserver.manipulation import ProblemSolver, Rule, Constraints, Const
 from hpp.gepetto.manipulation import ViewerFactory
 from hpp.gepetto import PathPlayer
 from hpp.corbaserver import loadServerPlugin
-from hpp_idl.hpp import Error
+from hpp_idl.hpp import Error as HppError
 
 from prl_pinocchio.tools.utils import compare_configurations, compare_poses, euler_to_quaternion
 from prl_hpp.tools.utils import wd
@@ -201,7 +201,8 @@ class Planner:
         assert q_end_grasp != None, "Error while concatenating the last part of the path."
 
         # Add the pre-grasp to grap path
-        self.ps.appendDirectPath(pathId, q_end_grasp, False)
+        wps = self.ps.getWaypoints(pathId)[0]
+        pathId = self._create_path(wps + [q_end_grasp]) # Do this in such way so null length segment are removed from the path (to prevent latter hpp bug during time parameterization)
 
         # Time parametrization of the path
         paramPathId = self._timeParametrizePath(pathId)
@@ -360,7 +361,7 @@ class Planner:
     def _reset_problem(self):
         try:
             self.graph.deleteGraph('graph')
-        except Error:
+        except HppError:
             pass
         self.ps.clearRoadmap()
         self.hpp_robot.__init__(self.robot.pin_robot_wrapper.model.name, "robot", self.robot.get_urdf_explicit(), self.robot.get_srdf_explicit())
@@ -388,8 +389,16 @@ class Planner:
         return orientation
 
     def _create_path(self, waypoints):
-        _, pathId, _ = self.ps.directPath(waypoints[0], waypoints[1], False)
-        for q in waypoints[2:]:
+        # Ensure that there are no null length segments in the path (to prevent latter hpp bug during time parametrization)
+        filtered_waypoints = []
+        for i in range(len(waypoints)-1):
+            if( not compare_configurations(self.robot.pin_robot_wrapper.model, waypoints[i][:-7], waypoints[i+1][:-7]) ):
+                filtered_waypoints.append(waypoints[i])
+        filtered_waypoints.append(waypoints[-1])
+
+        # Create path with remaining waypoints
+        _, pathId, _ = self.ps.directPath(filtered_waypoints[0], filtered_waypoints[1], False)
+        for q in filtered_waypoints[2:]:
             self.ps.appendDirectPath(pathId, q, False)
         return pathId
 
@@ -439,7 +448,7 @@ class Planner:
         """
         try:
             self.ps.solve()
-        except Error as e:
+        except HppError as e:
             # print(e.msg)
             return False
         return True

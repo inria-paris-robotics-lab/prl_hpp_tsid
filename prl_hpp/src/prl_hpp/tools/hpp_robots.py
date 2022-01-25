@@ -48,3 +48,12 @@ class TargetRobotStrings:
 
         # Replace clearance placeHolder
         self.srdf = replace_placeholders(self.srdf, "{CLEARANCE}", str(clearance))
+
+
+
+class SupportObj:
+    rootJointType = "freeflyer"
+    urdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/support.urdf")
+    srdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/support.srdf")
+    urdfSuffix = ""
+    srdfSuffix = ""

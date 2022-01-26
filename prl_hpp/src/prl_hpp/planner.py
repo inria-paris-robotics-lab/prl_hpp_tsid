@@ -8,8 +8,7 @@ from prl_pinocchio.tools.utils import compare_configurations, compare_poses, eul
 from prl_hpp.tools.utils import wd
 from prl_hpp.tools.instate_planner import InStatePlanner
 
-from prl_hpp.tools.hpp_robots import TargetRobotStrings
-from prl_hpp.tools.hpp_robots import HppRobot
+from prl_hpp.tools.hpp_robots import HppRobot, TargetRobotStrings, SupportObj
 
 # import os
 # loadServerPlugin ("corbaserver", os.environ.get('CONDA_PREFIX')+"/lib/hppPlugins/manipulation-corba.so")
@@ -285,8 +284,17 @@ class Planner:
         q_start = q_start + pose_pick
         q_end = q_end + pose_place
 
+        # Load the environment
+        self._create_support("support_pick")
+        self._create_support("support_place")
+
+        q_start += pose_pick + pose_place
+        q_end += pose_pick + pose_place
+
+        contactSurfacesPerObjects = [["target/surface"], ["support_pick/surface"], ["support_place/surface"]]
+
         # Create the ConstraintGraph
-        cg = self._create_simple_cg([gripperFullname], ['target'], [['target/handle']], validate)
+        cg = self._create_simple_cg([gripperFullname], ['target', "support_pick", "support_place"], [['target/handle'], [], []], validate, contactSurfacesPerObjects=contactSurfacesPerObjects)
 
         # Project the initial configuration in the initial node
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
@@ -358,6 +366,17 @@ class Planner:
         self.v = self.vf.createViewer()
         self.pp = PathPlayer(self.v)
 
+    def _create_support(self, supportName, bounds = [-2, 2]*3 + [-1, 1]*4):
+        # Create the support object
+        self.vf.loadObjectModel(SupportObj, supportName)
+
+        # Bound the object pose around the desired pose
+        self.hpp_robot.setJointBounds (supportName + '/root_joint', bounds)
+
+        # Re-create the viewer with the target
+        self.v = self.vf.createViewer()
+        self.pp = PathPlayer(self.v)
+
     def _reset_problem(self):
         try:
             self.graph.deleteGraph('graph')
@@ -402,12 +421,15 @@ class Planner:
             self.ps.appendDirectPath(pathId, q, False)
         return pathId
 
-    def _create_simple_cg(self, grippers, targets, targets_handles, validate, *, replace_target_constraints = False):
+    def _create_simple_cg(self, grippers, objects, objects_handles, validate, *, replace_target_constraints = False, contactSurfacesPerObjects = None) :
+        if contactSurfacesPerObjects is None:
+            contactSurfacesPerObjects = [[None] * len(objects)]
+
         # Create graph using ConstraintGraphFactory
         cg = ConstraintGraph (self.hpp_robot, 'graph')
         factory = ConstraintGraphFactory (cg)
         factory.setGrippers (grippers)
-        factory.setObjects (targets, targets_handles, [[]*len(targets)])
+        factory.setObjects (objects, objects_handles, contactSurfacesPerObjects)
         factory.setRules ([ Rule([".*"], [".*"], True), ])
         factory.generate ()
         cg.addConstraints (graph=True, constraints= Constraints(numConstraints = self.lockJointConstraints))
@@ -417,12 +439,13 @@ class Planner:
         # Replace box locked joints constraint of the targets with locked transform constraint to avoid later problems
         if(replace_target_constraints):
             cgraph = cproblem.getConstraintGraph()
-            for target in targets:
-                constrain_name = F'implicit Transform {target}/root_joint'
-                self.ps.client.basic.problem.createTransformationR3xSO3Constraint(constrain_name, '',F'{target}/root_joint', [0,0,0, 0,0,0,1], [0,0,0, 0,0,0,1], [True, True, True, True, True, True,])
+            for handle in objects_handles:
+                object = handle.split('/')[0]
+                constrain_name = F'implicit Transform {object}/root_joint'
+                self.ps.client.basic.problem.createTransformationR3xSO3Constraint(constrain_name, '',F'{object}/root_joint', [0,0,0, 0,0,0,1], [0,0,0, 0,0,0,1], [True, True, True, True, True, True,])
                 self.ps.setConstantRightHandSide(constrain_name, False)
                 for gripper in grippers: # TODO: Test this nested loop inner code in the case of multiple grippers and targets (is there any edges that haven't been updated ?)
-                    for edge_name_suffix in [F'> {target}/handle | f_01', F'> {target}/handle | f_12', F'< {target}/handle | 0-0_10', F'< {target}/handle | 0-0_21']:
+                    for edge_name_suffix in [F'> {handle} | f_01', F'> {handle} | f_12', F'< {handle} | 0-0_10', F'< {handle} | 0-0_21']:
                         edge_name = gripper + ' ' + edge_name_suffix
                         # edge_nb = cg.edges[edge_name]
                         # edge = cgraph.get(edge_nb)

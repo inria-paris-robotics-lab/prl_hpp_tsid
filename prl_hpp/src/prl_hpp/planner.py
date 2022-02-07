@@ -294,10 +294,11 @@ class Planner:
 
         # Rules
         rules = [
+            Rule(["support_pick/gripper", "support_place/gripper"], ["target/handle_bottom", "target/handle"], False),
+            Rule(["support_pick/gripper", "support_place/gripper"], ["target/handle", "target/handle_bottom"], False),
             Rule([gripperFullname], ["target/handle_bottom"], False),
+
             Rule([gripperFullname], ["target/handle"], True),
-            Rule(["support_pick/gripper"],  ["target/handle"], False),
-            Rule(["support_place/gripper"], ["target/handle"], False),
             Rule(["support_pick/gripper"],  ["target/handle_bottom"], True),
             Rule(["support_place/gripper"], ["target/handle_bottom"], True),
         ]
@@ -306,7 +307,7 @@ class Planner:
         cg = self._create_simple_cg([gripperFullname, "support_pick/gripper", "support_place/gripper"], ['target', "support_pick", "support_place"], [['target/handle', 'target/handle_bottom'], [], []], validate, rules = rules)
 
         # Project the initial configuration in the initial node
-        res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
+        res_init, q_init, _ = cg.applyNodeConstraints("support_pick/gripper grasps target/handle_bottom", q_start)
         assert res_init, "Initial configuration is not valid"
         self.ps.setInitialConfig(q_init)
 
@@ -314,7 +315,7 @@ class Planner:
 
         # Add goal config
         self.ps.resetGoalConfigs()
-        res_goal, q_goal, _ = cg.applyNodeConstraints("free", q_end)
+        res_goal, q_goal, _ = cg.applyNodeConstraints("support_place/gripper grasps target/handle_bottom", q_end)
         assert res_goal, "End configuration is not valid"
         self.ps.addGoalConfig(q_goal)
 

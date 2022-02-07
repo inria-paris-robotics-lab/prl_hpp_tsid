@@ -292,8 +292,18 @@ class Planner:
         q_start += pose_pick
         q_end += pose_place
 
+        # Rules
+        rules = [
+            Rule([gripperFullname], ["target/handle_bottom"], False),
+            Rule([gripperFullname], ["target/handle"], True),
+            Rule(["support_pick/gripper"],  ["target/handle"], False),
+            Rule(["support_place/gripper"], ["target/handle"], False),
+            Rule(["support_pick/gripper"],  ["target/handle_bottom"], True),
+            Rule(["support_place/gripper"], ["target/handle_bottom"], True),
+        ]
+
         # Create the ConstraintGraph
-        cg = self._create_simple_cg([gripperFullname, "support_pick/gripper", "support_place/gripper"], ['target', "support_pick", "support_place"], [['target/handle', 'target/handle_bottom'], [], []], validate)
+        cg = self._create_simple_cg([gripperFullname, "support_pick/gripper", "support_place/gripper"], ['target', "support_pick", "support_place"], [['target/handle', 'target/handle_bottom'], [], []], validate, rules = rules)
 
         # Project the initial configuration in the initial node
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
@@ -424,13 +434,17 @@ class Planner:
             self.ps.appendDirectPath(pathId, q, False)
         return pathId
 
-    def _create_simple_cg(self, grippers, objects, objects_handles, validate, *, replace_target_constraints = False) :
+    def _create_simple_cg(self, grippers, objects, objects_handles, validate, *, replace_target_constraints = False, rules = None):
+        # Rules
+        if(rules is None):
+            rules = [ Rule([".*"], [".*"], True), ]
+
         # Create graph using ConstraintGraphFactory
         cg = ConstraintGraph (self.hpp_robot, 'graph')
         factory = ConstraintGraphFactory (cg)
         factory.setGrippers (grippers)
         factory.setObjects (objects, objects_handles, [[None]] * len(objects))
-        factory.setRules ([ Rule([".*"], [".*"], True), ])
+        factory.setRules (rules)
         factory.generate ()
         cg.addConstraints (graph=True, constraints= Constraints(numConstraints = self.lockJointConstraints))
 

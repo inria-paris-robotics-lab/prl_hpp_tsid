@@ -263,7 +263,7 @@ class Planner:
         if q_start == None:
             q_start = self.robot.get_meas_q()
         if q_end == None:
-            q_end = q_start
+            q_end = q_start[:]
 
         # Convert euler rotations into quaternions (if needed)
         pose_pick[1]  = Planner._convert_orientation(pose_pick[1])
@@ -277,24 +277,23 @@ class Planner:
         gripperFullname = "robot/" + gripperName
         gripperLink = self.robot.get_gripper_link(gripperName)
 
-        # Create the approach object target
-        self._create_target("target", approach_distance)
-
-        # The configuration space is now bigger because of the configuration of the target
-        q_start = q_start + pose_pick
-        q_end = q_end + pose_place
-
         # Load the environment
         self._create_support("support_pick")
         self._create_support("support_place")
 
+        # The configuration space is now bigger because of the configuration of pick and place objects
         q_start += pose_pick + pose_place
         q_end += pose_pick + pose_place
 
-        contactSurfacesPerObjects = [["target/surface"], ["support_pick/surface"], ["support_place/surface"]]
+        # Create the approach object target
+        self._create_target("target", approach_distance)
+
+        # The configuration space is now bigger because of the configuration of the target
+        q_start += pose_pick
+        q_end += pose_place
 
         # Create the ConstraintGraph
-        cg = self._create_simple_cg([gripperFullname], ['target', "support_pick", "support_place"], [['target/handle'], [], []], validate, contactSurfacesPerObjects=contactSurfacesPerObjects)
+        cg = self._create_simple_cg([gripperFullname], ['target', "support_pick", "support_place"], [['target/handle'], [], []], validate)
 
         # Project the initial configuration in the initial node
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
@@ -326,10 +325,10 @@ class Planner:
         pick_index = None
         place_index = None
         for i, q in enumerate(wps):
-            target_pos = q[-7:]
-            if(compare_poses(target_pos, pose_pick)):
+            target_pose = q[-7:]
+            if(compare_poses(target_pose, pose_pick)):
                 pick_index = i
-            if(not compare_poses(target_pos, pose_place)): # As soon as the target reached the goal position, the place is reached
+            if(not compare_poses(target_pose, pose_place)): # As soon as the target reached the goal position, the place is reached
                 place_index = i+1
 
         # Create sub path
@@ -409,9 +408,11 @@ class Planner:
 
     def _create_path(self, waypoints):
         # Ensure that there are no null length segments in the path (to prevent latter hpp bug during time parametrization)
+        model = self.robot.pin_robot_wrapper.model
+        nq = model.nq
         filtered_waypoints = []
         for i in range(len(waypoints)-1):
-            if( not compare_configurations(self.robot.pin_robot_wrapper.model, waypoints[i][:-7], waypoints[i+1][:-7]) ):
+            if( not compare_configurations(model, waypoints[i][:nq], waypoints[i+1][:nq]) ):
                 filtered_waypoints.append(waypoints[i])
         filtered_waypoints.append(waypoints[-1])
 
@@ -421,15 +422,12 @@ class Planner:
             self.ps.appendDirectPath(pathId, q, False)
         return pathId
 
-    def _create_simple_cg(self, grippers, objects, objects_handles, validate, *, replace_target_constraints = False, contactSurfacesPerObjects = None) :
-        if contactSurfacesPerObjects is None:
-            contactSurfacesPerObjects = [[None] * len(objects)]
-
+    def _create_simple_cg(self, grippers, objects, objects_handles, validate, *, replace_target_constraints = False) :
         # Create graph using ConstraintGraphFactory
         cg = ConstraintGraph (self.hpp_robot, 'graph')
         factory = ConstraintGraphFactory (cg)
         factory.setGrippers (grippers)
-        factory.setObjects (objects, objects_handles, contactSurfacesPerObjects)
+        factory.setObjects (objects, objects_handles, [[None]] * len(objects))
         factory.setRules ([ Rule([".*"], [".*"], True), ])
         factory.generate ()
         cg.addConstraints (graph=True, constraints= Constraints(numConstraints = self.lockJointConstraints))

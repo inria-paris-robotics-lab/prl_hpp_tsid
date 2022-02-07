@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <robot name="support">
   <contact name="surface">
-      <link name="base_link"/>
-      <point>-0.05 -0.05 0   -0.05 0.05 0   0.05 0.05 0   0.05 0.05 0</point>
-      <shape> 4 3 2 1 0 </shape>
-    </contact>
+    <link name="base_link"/>
+    <point>-0.05 -0.05 0   -0.05 0.05 0   0.05 0.05 0   0.05 0.05 0</point>
+    <shape> 4 3 2 1 0 </shape>
+  </contact>
 </robot>

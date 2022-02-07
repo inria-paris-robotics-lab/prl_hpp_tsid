@@ -1,5 +1,5 @@
-<robot name="dummy">
-  <link name="dummy_base">
+<robot name="target">
+  <link name="target_base">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>

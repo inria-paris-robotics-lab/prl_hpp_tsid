@@ -32,8 +32,8 @@ class HppRobot(Parent):
 class TargetRobotStrings:
     """Prepare and holds the urdf and srdf strings of the Target Robot (i.e. a robot that is just a freeflyer with a handle, and no collisions)"""
 
-    _urdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/dummy.urdf")
-    _srdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/dummy.srdf")
+    _urdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/target.urdf")
+    _srdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/target.srdf")
 
     def __init__(self, clearance):
         # Read file in strings

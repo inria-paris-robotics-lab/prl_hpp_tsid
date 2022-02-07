@@ -327,6 +327,7 @@ class Planner:
 
         # Optimize path
         self.ps.clearPathOptimizers()
+        self.ps.addPathOptimizer("EnforceTransitionSemantic")
         self.ps.addPathOptimizer("RandomShortcut")
         self.ps.optimizePath(pathId)
         pathId = self.ps.numberPaths()-1

@@ -19,7 +19,7 @@ pose_2 = [[-0.50, 0.30, 0.1], [pi,0,0]]
 
 paths = planner.make_pick_and_place(robot.left_gripper_name, pose_1, pose_2, approach_distance = 0.2)
 
-
+print(paths)
 # input("Solution found. Press enter to display path")
 # planner.pp(paths[0].id)
 # # input("Press enter to display path")

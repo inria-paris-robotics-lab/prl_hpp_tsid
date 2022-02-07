@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<robot name="target">
+  <handle name="handle" clearance="{CLEARANCE}">
+    <position> 0 0 0 0.5 -0.5 -0.5 -0.5 </position>
+    <link name="target_base"/>
+  </handle>
+  <handle name="handle_bottom" clearance="{CLEARANCE}">
+    <position> 0 0 0 -0.5 -0.5 -0.5 0.5 </position>
+    <link name="target_base"/>
+  </handle>
+</robot>

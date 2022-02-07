@@ -8,7 +8,7 @@ from prl_pinocchio.tools.utils import compare_configurations, compare_poses, eul
 from prl_hpp.tools.utils import wd
 from prl_hpp.tools.instate_planner import InStatePlanner
 
-from prl_hpp.tools.hpp_robots import HppRobot, TargetRobotStrings, SupportObj
+from prl_hpp.tools.hpp_robots import HppRobot, TargetRobotStrings, SupportRobotStrings
 
 # import os
 # loadServerPlugin ("corbaserver", os.environ.get('CONDA_PREFIX')+"/lib/hppPlugins/manipulation-corba.so")
@@ -278,22 +278,22 @@ class Planner:
         gripperLink = self.robot.get_gripper_link(gripperName)
 
         # Load the environment
-        self._create_support("support_pick")
-        self._create_support("support_place")
+        self._create_support("support_pick", approach_distance)
+        self._create_support("support_place", approach_distance)
 
         # The configuration space is now bigger because of the configuration of pick and place objects
         q_start += pose_pick + pose_place
         q_end += pose_pick + pose_place
 
         # Create the approach object target
-        self._create_target("target", approach_distance)
+        self._create_target("target", approach_distance, double_handle = True)
 
         # The configuration space is now bigger because of the configuration of the target
         q_start += pose_pick
         q_end += pose_place
 
         # Create the ConstraintGraph
-        cg = self._create_simple_cg([gripperFullname], ['target', "support_pick", "support_place"], [['target/handle'], [], []], validate)
+        cg = self._create_simple_cg([gripperFullname, "support_pick/gripper", "support_place/gripper"], ['target', "support_pick", "support_place"], [['target/handle', 'target/handle_bottom'], [], []], validate)
 
         # Project the initial configuration in the initial node
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
@@ -352,11 +352,11 @@ class Planner:
                 Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperLink])
 
 
-    def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4):
-        target = TargetRobotStrings(clearance)
+    def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4, *, double_handle = False):
+        target = TargetRobotStrings(clearance, double_handle = double_handle)
 
         # Create the target object target
-        self.v.loadRobotModelFromString(targetName, 'freeflyer', target.urdf, target.srdf)
+        self.vf.loadRobotModelFromString(targetName, 'freeflyer', target.urdf, target.srdf)
 
         # Bound the pickTarget pose around the desired pose
         self.hpp_robot.setJointBounds (targetName + '/root_joint', bounds)
@@ -365,9 +365,11 @@ class Planner:
         self.v = self.vf.createViewer()
         self.pp = PathPlayer(self.v)
 
-    def _create_support(self, supportName, bounds = [-2, 2]*3 + [-1, 1]*4):
+    def _create_support(self, supportName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4):
+        support = SupportRobotStrings(clearance)
+
         # Create the support object
-        self.vf.loadObjectModel(SupportObj, supportName)
+        self.vf.loadRobotModelFromString(supportName, 'freeflyer', support.urdf, support.srdf)
 
         # Bound the object pose around the desired pose
         self.hpp_robot.setJointBounds (supportName + '/root_joint', bounds)

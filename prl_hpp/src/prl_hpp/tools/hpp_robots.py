@@ -31,11 +31,12 @@ class HppRobot(Parent):
 
 class TargetRobotStrings:
     """Prepare and holds the urdf and srdf strings of the Target Robot (i.e. a robot that is just a freeflyer with a handle, and no collisions)"""
+    def __init__(self, clearance, *, double_handle = False):
+        srdf_suffix = "_double" if double_handle else ""
 
-    _urdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/target.urdf")
-    _srdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/target.srdf")
+        self._urdfFilename = replace_path_to_absolute("package://prl_hpp/" +  "urdf_srdf/target.urdf")
+        self._srdfFilename = replace_path_to_absolute("package://prl_hpp/" + f"urdf_srdf/target{srdf_suffix}.srdf")
 
-    def __init__(self, clearance):
         # Read file in strings
         urdf_file = open(self._urdfFilename, mode='r')
         srdf_file = open(self._srdfFilename, mode='r')
@@ -51,9 +52,22 @@ class TargetRobotStrings:
 
 
 
-class SupportObj:
-    rootJointType = "freeflyer"
-    urdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/support.urdf")
-    srdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/support.srdf")
-    urdfSuffix = ""
-    srdfSuffix = ""
+class SupportRobotStrings:
+    """Prepare and holds the urdf and srdf strings of the Target Robot (i.e. a robot that is just a freeflyer with a handle, and no collisions)"""
+
+    _urdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/support.urdf")
+    _srdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/support.srdf")
+
+    def __init__(self, clearance):
+        # Read file in strings
+        urdf_file = open(self._urdfFilename, mode='r')
+        srdf_file = open(self._srdfFilename, mode='r')
+
+        self.urdf = urdf_file.read()
+        self.srdf = srdf_file.read()
+
+        urdf_file.close()
+        srdf_file.close()
+
+        # Replace clearance placeHolder
+        self.srdf = replace_placeholders(self.srdf, "{CLEARANCE}", str(clearance))

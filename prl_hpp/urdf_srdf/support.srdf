@@ -1,8 +1,7 @@
 <?xml version="1.0"?>
 <robot name="support">
-  <contact name="surface">
-    <link name="base_link"/>
-    <point>-0.05 -0.05 0   -0.05 0.05 0   0.05 0.05 0   0.05 0.05 0</point>
-    <shape> 4 3 2 1 0 </shape>
-  </contact>
+  <gripper name="gripper" clearance="{CLEARANCE}">
+    <position> 0 0 0 -0.5 -0.5 -0.5 0.5 </position>
+    <link name="support_base"/>
+  </gripper>
 </robot>

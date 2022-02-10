@@ -456,18 +456,18 @@ class Planner:
         # Replace box locked joints constraint of the targets with locked transform constraint to avoid later problems
         if(replace_target_constraints):
             cgraph = cproblem.getConstraintGraph()
-            for handle in objects_handles:
-                object = handle.split('/')[0]
-                constrain_name = F'implicit Transform {object}/root_joint'
-                self.ps.client.basic.problem.createTransformationR3xSO3Constraint(constrain_name, '',F'{object}/root_joint', [0,0,0, 0,0,0,1], [0,0,0, 0,0,0,1], [True, True, True, True, True, True,])
-                self.ps.setConstantRightHandSide(constrain_name, False)
-                for gripper in grippers: # TODO: Test this nested loop inner code in the case of multiple grippers and targets (is there any edges that haven't been updated ?)
-                    for edge_name_suffix in [F'> {handle} | f_01', F'> {handle} | f_12', F'< {handle} | 0-0_10', F'< {handle} | 0-0_21']:
-                        edge_name = gripper + ' ' + edge_name_suffix
-                        # edge_nb = cg.edges[edge_name]
-                        # edge = cgraph.get(edge_nb)
-                        # edge.resetNumericalConstraints() # TODO: To be removed ? (What if multiple grippers and objects : are we deleting too much ?)
-                        cg.addConstraints(edge=edge_name, constraints = Constraints(numConstraints=[constrain_name]))
+            for obj_i, obj in enumerate(objects):
+                for handle in objects_handles[obj_i]:
+                    constrain_name = F'implicit Transform {obj}/root_joint'
+                    self.ps.client.basic.problem.createTransformationR3xSO3Constraint(constrain_name, '',F'{obj}/root_joint', [0,0,0, 0,0,0,1], [0,0,0, 0,0,0,1], [True, True, True, True, True, True,])
+                    self.ps.setConstantRightHandSide(constrain_name, False)
+                    for gripper in grippers: # TODO: Test this nested loop inner code in the case of multiple grippers and targets (is there any edges that haven't been updated ?)
+                        for edge_name_suffix in [F'> {handle} | f_01', F'> {handle} | f_12', F'< {handle} | 0-0_10', F'< {handle} | 0-0_21']:
+                            edge_name = gripper + ' ' + edge_name_suffix
+                            # edge_nb = cg.edges[edge_name]
+                            # edge = cgraph.get(edge_nb)
+                            # edge.resetNumericalConstraints() # TODO: To be removed ? (What if multiple grippers and objects : are we deleting too much ?)
+                            cg.addConstraints(edge=edge_name, constraints = Constraints(numConstraints=[constrain_name]))
 
         # Initialize
         factory.generate ()

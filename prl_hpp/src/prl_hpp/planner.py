@@ -47,6 +47,7 @@ class Planner:
 
         self.ps.setErrorThreshold (1e-3)
         self.ps.setMaxIterProjection (40)
+        self.ps.selectPathValidation("Graph-Progressive", 0.01)
         self.set_planning_timeout(10.0)
 
         # Time parametrization

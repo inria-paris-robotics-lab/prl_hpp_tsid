@@ -1,19 +1,16 @@
 import rospy
-from sensor_msgs.msg import JointState
 from prl_pinocchio.tools.utils import replace_path_to_absolute, compare_configurations
-from prl_pinocchio.tools.observer import Observer
 import pinocchio
 import numpy
 
 
 class Robot:
     """ User friendly Robot class that encapsulate the HppRobot and some ROS functionnality """
-    def __init__(self, robot_description_param_prefix, joint_state_topic):
+    def __init__(self, robot_description_param_prefix):
         """
         Parameters
         ----------
             robot_description_param_prefix (str): Prefix to get ros parameters 'urdf' and 'srdf' (that contains robot urdf and srdf strings).
-            joint_state_topic (str): Topic name to get robot configuration.
         """
         # Get URDF/SRDF strings from ros parameters
         urdfString = rospy.get_param(robot_description_param_prefix + "/urdf")
@@ -21,34 +18,12 @@ class Robot:
         self._urdfStringExplicit = replace_path_to_absolute(urdfString)
         self._srdfStringExplicit = replace_path_to_absolute(srdfString)
 
-        # Joint topic from ros
-        self.joint_state_topic = joint_state_topic
-
         # Build pinocchio models and wrappers
         pin_model = pinocchio.buildModelFromXML(urdfString)
         pin_collision_model = pinocchio.buildGeomFromUrdfString(pin_model, self.get_urdf_explicit(), pinocchio.COLLISION)
         pin_visual_model    = pinocchio.buildGeomFromUrdfString(pin_model, self.get_urdf_explicit(), pinocchio.VISUAL)
 
         self.pin_robot_wrapper = pinocchio.RobotWrapper(pin_model, pin_collision_model, pin_visual_model)
-
-        # # Check that for each ros joint the corresponding pinocchio model joint matches the name and index
-        # ros_joint_names = rospy.wait_for_message(self.joint_state_topic, JointState).name
-        # assert len(ros_joint_names) == len(self.pin_model.names[1:]), \
-        #        F"Error number of joints differ between ROS and pinocchio model : {len(ros_joint_names)} != {len(self.pin_model.names[1:])}"
-        #        # Pinocchio joints starts at 1 to take into account the universe joint that is not in ros.
-        # for index, name in enumerate(ros_joint_names):
-        #     assert self.pin_model.names[index+1] == name, \
-        #            F"Error while matching ROS and pinocchio model joints at index {index} : joint name {self.pin_model.names[index+1]} differs from {name}."
-        #            # Pinocchio index starts at +1 to take into account the universe joint.
-
-        # Make a lookup table to change between ros joint index and pinocchio joint index (using joints names)
-        # The input/output of this class will always be according to pinocchio joint order
-        self._joint_state_obs = Observer(joint_state_topic, JointState)
-        rospy.loginfo(F"Wait for a JointState message on {self.joint_state_topic}...")
-
-        # Prepare lookup table to re-arrange q, v, a from ros to pinocchio format, etc..
-        ros_joint_names = list(self._joint_state_obs.get_last_msg().name)
-        self._q_pin_to_ros, self._q_ros_to_pin, self._v_pin_to_ros, self._v_ros_to_pin = self.create_dof_lookup(ros_joint_names)
 
     def get_urdf_explicit(self):
         return self._urdfStringExplicit
@@ -60,7 +35,7 @@ class Robot:
         """
         Get the current configuration of the robot.
 
-        Read it from the ros 'joint_state_topic' topic.
+        Read it from the ros topics (e.g /joint_states).
 
         Optionnals parameters:
         ----------------------
@@ -81,7 +56,7 @@ class Robot:
         """
         Get the current position, velocity and effort of everyjoint of the robot.
 
-        Read it from the ros 'joint_state_topic' topic.
+        Read it from the ros topics (e.g /joint_states).
 
         Optionnals parameters:
         ----------------------
@@ -97,21 +72,34 @@ class Robot:
         ------
             AssertionError: If the adjusted configuration deviates too much from the original one.
         """
-        joints_state = self._joint_state_obs.get_last_msg()
-        q = list(joints_state.position)
-        v = list(joints_state.velocity)
-        tau = list(joints_state.effort)
-
-        q, v, tau = self._rearrange_ros_to_pin(q=q, v=v, tau=tau)
+        q, v, tau = self._get_raw_meas_qvtau()
 
         if not raw:
             for i, pos in enumerate(q):
                 pos = max(pos, self.pin_robot_wrapper.model.lowerPositionLimit[i])
                 pos = min(pos, self.pin_robot_wrapper.model.upperPositionLimit[i])
-                assert abs(pos - q[i]) < 1e-3, F"Joint {i} way out of bounds : {self.pin_robot_wrapper.pin_model.names[i+1]}"
+                assert abs(pos - q[i]) < 1e-3 #, F"Joint {i} way out of bounds : {self.pin_robot_wrapper.pin_model.names[i+1]}"
                 q[i] = pos
 
         return q, v, tau
+
+    def _get_raw_meas_qvtau(self):
+        """
+        Get the current position, velocity and effort of everyjoint of the robot and output the configuration in pinocchio joint order (as opposed to ros order that could be different).
+
+        Read it from the ros topics (e.g /joint_states).
+
+        Returns
+        -------
+            q (float[]): the configuration (pinocchio joint order).
+            v (float[]): the velocities (pinocchio joint order).
+            tau (float[]): the efforts (pinocchio joint order).
+
+        Raises
+        ------
+            AssertionError: If the adjusted configuration deviates too much from the original one.
+        """
+        raise NotImplementedError
 
     def get_joint_pose(self, jointName, q=None):
         """
@@ -281,22 +269,3 @@ class Robot:
             res_v_pin_to_new.append(new_index)
 
         return res_q_pin_to_new, res_q_new_to_pin, res_v_pin_to_new, res_v_new_to_pin
-
-    def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
-        res  = []
-
-        # Remark: to convert a q (from ros) to a q (from pin), it use q_pin_to_ros because we want the ros index for each pin index (1, 2, 3, 4, ...)
-        # So then it picks the appropriate ros coordinate and arrange them in order.
-        if q != None:
-            q_res = [q[self._q_pin_to_ros[i]] for i in range(len(q))]
-            res.append(q_res)
-
-        if v != None:
-            v_res = [v[self._v_pin_to_ros[i]] for i in range(len(v))]
-            res.append(v_res)
-
-        if tau != None:
-            tau_res = [tau[self._v_pin_to_ros[i]] for i in range(len(tau))]
-            res.append(tau_res)
-
-        return res

@@ -75,7 +75,7 @@ while not rospy.is_shutdown():
     HQPData = formulation.computeProblemData(t.to_sec(), np.array(q_meas), np.array(v_meas))
     sol = solver.solve(HQPData)
     if(sol.status!=0):
-        print(F"Time {t} QP problem could not be solved! Error code: {sol.status}")
+        # print(F"Time {t} QP problem could not be solved! Error code: {sol.status}")
         break
 
     # tau = formulation.getActuatorForces(sol)

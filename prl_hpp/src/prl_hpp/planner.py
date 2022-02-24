@@ -108,7 +108,7 @@ class Planner:
         self.lockJointConstraints.extend(constraintNames)
         return constraintNames
 
-    def make_gripper_approach(self, gripperName, position, orientation, approach_distance = 0.1, q_start = None, *, validate = True, do_not_plan = False):
+    def make_gripper_approach(self, gripperName, position, orientation, approach_distance = 0.1, q_start = None, validate = True, do_not_plan = False):
         """
         Find a path that leads to the gripper at a certain pose with a certain approach direction.
 
@@ -234,7 +234,7 @@ class Planner:
         """
         self.acceleration_scale = scale
 
-    def make_pick_and_place(self, gripperName, pose_pick, pose_place, approach_distance = 0.1, q_start = None, q_end = None, *, validate = True):
+    def make_pick_and_place(self, gripperName, pose_pick, pose_place, approach_distance = 0.1, q_start = None, q_end = None, validate = True):
         """
         Find 3 paths to pick an object, place the object and go to end position.
 
@@ -365,7 +365,7 @@ class Planner:
                 Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperLink])
 
 
-    def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4, *, double_handle = False):
+    def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4, double_handle = False):
         target = TargetRobotStrings(clearance, double_handle = double_handle)
 
         # Create the target object target
@@ -437,7 +437,7 @@ class Planner:
             self.ps.appendDirectPath(pathId, q, False)
         return pathId
 
-    def _create_simple_cg(self, grippers, objects, objects_handles, validate, *, replace_target_constraints = False, rules = None):
+    def _create_simple_cg(self, grippers, objects, objects_handles, validate, replace_target_constraints = False, rules = None):
         # Rules
         if(rules is None):
             rules = [ Rule([".*"], [".*"], True), ]

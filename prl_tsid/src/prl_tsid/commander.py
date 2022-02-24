@@ -75,7 +75,7 @@ class PathFollower:
         for targetFrame in path.targetFrames:
             eeIndex = self.robot.pin_robot_wrapper.model.getFrameId(targetFrame)
             if eeIndex >= len(self.robot.pin_robot_wrapper.model.frames):
-                rospy.logwarn(F"Frame {targetFrame} not found in the robot model : task related to that frame will be ignored")
+                # rospy.logwarn(F"Frame {targetFrame} not found in the robot model : task related to that frame will be ignored")
                 continue
 
             eeTask_name = "ee-task-" + targetFrame
@@ -105,7 +105,7 @@ class PathFollower:
         # Prepare a filter function
         q_pin_to_hpp, _ , v_pin_to_hpp, _ = self.robot.create_dof_lookup(path.jointList)
 
-        def _rearrange_hpp_to_pin(q, v, v_dot): # Robot._rearrange_ros_to_pin()
+        def _rearrange_hpp_to_pin(q, v, v_dot):
                 return np.array([q[i] for i in q_pin_to_hpp]), \
                        np.array([v[i] for i in v_pin_to_hpp]), \
                        np.array([v_dot[i] for i in v_pin_to_hpp])
@@ -178,7 +178,7 @@ class PathFollower:
             HQPData = self.formulation.computeProblemData(t, q_meas, v_meas)
             sol = self.solver.solve(HQPData)
             if(sol.status!=0):
-                print(F"Time  {t}  QP problem could not be solved! Error code: {sol.status}")
+                # print(F"Time  {t}  QP problem could not be solved! Error code: {sol.status}")
                 print("Posture tasks : ")
                 for i in range(len(eeTasks)):
                     print("- eeIndex", eeIndexes[i])

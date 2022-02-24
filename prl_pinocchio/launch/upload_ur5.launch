@@ -8,5 +8,5 @@
         backwall:=true
         "/>
 
-    <param name="prl_ur5_description/srdf" command="cat $(find prl_hpp)/urdf_srdf/prl_ur5_robot.srdf"/>
+    <param name="prl_ur5_description/srdf" command="cat $(find prl_pinocchio)/urdf_srdf/prl_ur5_robot.srdf"/>
 </launch>

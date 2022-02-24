@@ -11,7 +11,7 @@ class Commander:
 
     DT = 1/125. # control frequency
 
-    def __init__(self, robot, jointsName, /, trajectory_action_name=None, fwd_action_name=None, speedScaling = 1.0, accScaling = 1.0):
+    def __init__(self, robot, jointsName, trajectory_action_name=None, fwd_action_name=None, speedScaling = 1.0, accScaling = 1.0):
         """
         Parameters
         ----------

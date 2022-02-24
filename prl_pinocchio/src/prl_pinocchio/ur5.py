@@ -1,6 +1,7 @@
 import rospy
 import xml.etree.ElementTree as ET
-
+from sensor_msgs.msg import JointState
+from prl_pinocchio.tools.observer import Observer
 from prl_pinocchio.robot import Robot
 from prl_pinocchio.commander import Commander
 """
@@ -12,7 +13,23 @@ class UR5_Robot(Robot):
     right_gripper_name = "r_gripper"
 
     def __init__(self, robot_description_param_prefix, joint_state_topic):
-        Robot.__init__(self, robot_description_param_prefix, joint_state_topic)
+        """
+        Parameters
+        ----------
+            robot_description_param_prefix (str): Prefix to get ros parameters 'urdf' and 'srdf' (that contains robot urdf and srdf strings).
+            joint_state_topic (str): Topic name to get robot configuration.
+        """
+        Robot.__init__(self, robot_description_param_prefix)
+
+        # Init joint reading
+        # Joint topic from ros
+        self.joint_state_topic = joint_state_topic
+
+        self._joint_state_obs = Observer(joint_state_topic, JointState)
+
+        # Prepare lookup table to re-arrange q, v, a from ros to pinocchio format, etc..
+        ros_joint_names = list(self._joint_state_obs.get_last_msg().name)
+        self._q_pin_to_ros, self._q_ros_to_pin, self._v_pin_to_ros, self._v_ros_to_pin = self.create_dof_lookup(ros_joint_names)
 
         # Init joints group
         joints = self.get_joint_names()
@@ -27,15 +44,66 @@ class UR5_Robot(Robot):
 
         gripper = srdf.find(".//gripper[@name='l_gripper']")
         if gripper is None:
-            rospy.logerr(F"Could not find gripper {gripper} in robot srdf")
+            # rospy.logerr(F"Could not find gripper {gripper} in robot srdf")
             return None
 
         link = gripper.find("link")
         if link is None:
-            rospy.logwarn(F"No link information found in srdf for gripper {gripper}")
+            # rospy.logwarn(F"No link information found in srdf for gripper {gripper}")
             return None
 
         return link.attrib["name"]
+
+    def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
+        res  = []
+
+        # Remark: to convert a q (from ros) to a q (from pin), it use q_pin_to_ros because we want the ros index for each pin index (1, 2, 3, 4, ...)
+        # So then it picks the appropriate ros coordinate and arrange them in order.
+        if q != None:
+            rospy.logwarn(len(q))
+            rospy.logwarn(max(self._q_pin_to_ros))
+            q_res = [q[self._q_pin_to_ros[i]] for i in range(len(q))]
+            res.append(q_res)
+
+        if v != None:
+            v_res = [v[self._v_pin_to_ros[i]] for i in range(len(v))]
+            res.append(v_res)
+
+        if tau != None:
+            tau_res = [tau[self._v_pin_to_ros[i]] for i in range(len(tau))]
+            res.append(tau_res)
+
+        return res
+
+    def _get_raw_meas_qvtau(self):
+        """
+        Get the current position, velocity and effort of everyjoint of the robot.
+
+        Read it from the ros 'joint_state_topic' topic.
+
+        Optionnals parameters:
+        ----------------------
+            raw (bool): If not set to True, the configuration will be adjusted to fit in the joints bounds.
+
+        Returns
+        -------
+            q (float[]): the configuration.
+            v (float[]): the velocities.
+            tau (float[]): the efforts.
+
+        Raises
+        ------
+            AssertionError: If the adjusted configuration deviates too much from the original one.
+        """
+        joints_state = self._joint_state_obs.get_last_msg()
+
+        q = list(joints_state.position)
+        v = list(joints_state.velocity)
+        tau = list(joints_state.effort)
+
+        q, v, tau = self._rearrange_ros_to_pin(q=q, v=v, tau=tau)
+
+        return q, v, tau
 
 robot = UR5_Robot("prl_ur5_description", "joint_states")
 

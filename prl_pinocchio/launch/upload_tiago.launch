@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Load URDF/SRDF -->
+    <param name="prl_tiago_description/urdf" command="rosparam get /robot_description"/>
+
+    <param name="prl_tiago_description/srdf" command="cat $(find prl_pinocchio)/urdf_srdf/prl_tiago_robot.srdf"/>
+</launch>

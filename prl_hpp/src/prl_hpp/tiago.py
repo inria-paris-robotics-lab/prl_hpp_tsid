@@ -23,6 +23,9 @@ class Tiago_Planner(Planner):
     def lock_head(self):
         return self.lock_joints(self.robot.head_joints)
 
+    def lock_torso(self):
+        return self.lock_joints(self.robot.torso_joints)
+
     # def left_gripper_at_pose(self, position, orientation, start_configuration = None):
     #     return self.tool_at_pose("/left_gripper_grasp_frame", position, orientation, start_configuration)
 

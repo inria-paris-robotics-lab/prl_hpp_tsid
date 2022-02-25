@@ -25,6 +25,7 @@ class Tiago_Robot(Robot):
         self.left_arm_joints  = list(filter(lambda joint: joint.lower().find("arm_left")  != -1, joints))
         self.right_arm_joints = list(filter(lambda joint: joint.lower().find("arm_right") != -1, joints))
         self.head_joints = list(filter(lambda joint: joint.lower().find("head") != -1, joints))
+        self.torso_joints = list(filter(lambda joint: joint.lower().find("torso") != -1, joints))
 
     def _get_raw_meas_qvtau(self):
         """

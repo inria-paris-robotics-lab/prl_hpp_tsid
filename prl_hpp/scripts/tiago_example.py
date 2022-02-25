@@ -14,8 +14,9 @@ planner.v(q_curr)
 planner.lock_left_arm()
 planner.lock_head()
 planner.lock_grippers()
+planner.lock_torso()
 
 from math import pi
-pose = [[0.5, 0.00, 0.6], [pi,0,0]]
+pose = [[0.25, -0.50, 0.6], [0,pi/2.,0]]
 
-paths = planner.make_gripper_approach(robot.right_gripper_name, pose, approach_distance = 0.2)
+paths = planner.make_gripper_approach(robot.right_gripper_name, pose, approach_distance = 0.1)

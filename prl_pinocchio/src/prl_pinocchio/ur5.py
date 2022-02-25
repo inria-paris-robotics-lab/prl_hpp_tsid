@@ -1,5 +1,4 @@
 import rospy
-import xml.etree.ElementTree as ET
 from sensor_msgs.msg import JointState
 from prl_pinocchio.tools.observer import Observer
 from prl_pinocchio.robot import Robot
@@ -38,21 +37,6 @@ class UR5_Robot(Robot):
         # joints = set(joints) - set(self.gripper_joints) # Remove grippers joints from list
         self.left_arm_joints  = list(filter(lambda joint: joint.lower().find("left")  != -1 and joint.lower().find("gripper") == -1, joints))
         self.right_arm_joints = list(filter(lambda joint: joint.lower().find("right") != -1 and joint.lower().find("gripper") == -1, joints))
-
-    def get_gripper_link(self, gripper):
-        srdf = ET.fromstring(self.get_srdf_explicit())
-
-        gripper = srdf.find(".//gripper[@name='l_gripper']")
-        if gripper is None:
-            # rospy.logerr(F"Could not find gripper {gripper} in robot srdf")
-            return None
-
-        link = gripper.find("link")
-        if link is None:
-            # rospy.logwarn(F"No link information found in srdf for gripper {gripper}")
-            return None
-
-        return link.attrib["name"]
 
     def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
         res  = []

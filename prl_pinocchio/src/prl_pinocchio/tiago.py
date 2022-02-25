@@ -10,8 +10,8 @@ from prl_pinocchio.commander import Commander
 """
 
 class Tiago_Robot(Robot):
-    # left_gripper_name = "l_gripper"
-    # right_gripper_name = "r_gripper"
+    left_gripper_name = "l_gripper"
+    right_gripper_name = "r_gripper"
 
     def __init__(self, robot_description_param_prefix, joint_state_topic):
         Robot.__init__(self, robot_description_param_prefix)
@@ -21,11 +21,10 @@ class Tiago_Robot(Robot):
 
         # Init joints group
         joints = self.get_joint_names()
-        self.gripper_joints = list(filter(lambda joint: joint.lower().find("gripper") != -1, joints))
-
-        # joints = set(joints) - set(self.gripper_joints) # Remove grippers joints from list
-        self.left_arm_joints  = list(filter(lambda joint: joint.lower().find("left")  != -1 and joint.lower().find("gripper") == -1, joints))
-        self.right_arm_joints = list(filter(lambda joint: joint.lower().find("right") != -1 and joint.lower().find("gripper") == -1, joints))
+        self.gripper_joints = list(filter(lambda joint: joint.lower().find("gripper") != -1 or joint.lower().find("hand") != -1, joints))
+        self.left_arm_joints  = list(filter(lambda joint: joint.lower().find("arm_left")  != -1, joints))
+        self.right_arm_joints = list(filter(lambda joint: joint.lower().find("arm_right") != -1, joints))
+        self.head_joints = list(filter(lambda joint: joint.lower().find("head") != -1, joints))
 
     def _get_raw_meas_qvtau(self):
         """
@@ -66,15 +65,10 @@ class Tiago_Robot(Robot):
 
         return q, v, tau
 
-def robot():
-    rospy.logwarn("Create Tiago Robot...")
+def robot_commanders():
     robot = Tiago_Robot("prl_tiago_description", "/joint_states")
-    rospy.logwarn("Done")
-    return robot
+    robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180deg/s^2
 
-
-# # Arbitrary value (as velocity and effort limits are already defined in the model)
-# robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180deg/s^2
-
-# commander_left_arm = Commander(robot, robot.left_arm_joints, trajectory_action_name="/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_action_name="/left_arm/joint_group_vel_controller")
-# commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_action_name="/right_arm/joint_group_vel_controller")
+    commander_left_arm  = Commander(robot, robot.left_arm_joints,  trajectory_action_name="/arm_left_controller",  fwd_action_name="")
+    commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/arm_right_controller", fwd_action_name="")
+    return robot, commander_left_arm, commander_right_arm

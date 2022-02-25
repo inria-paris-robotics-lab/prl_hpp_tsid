@@ -2,6 +2,7 @@ import rospy
 from prl_pinocchio.tools.utils import replace_path_to_absolute, compare_configurations
 import pinocchio
 import numpy
+import xml.etree.ElementTree as ET
 
 
 class Robot:
@@ -168,6 +169,21 @@ class Robot:
         oMf = self.pin_robot_wrapper.framePlacement(q, frame_index)
         xyz_quat = pinocchio.SE3ToXYZQUATtuple(oMf)
         return xyz_quat
+
+    def get_gripper_link(self, gripper):
+        srdf = ET.fromstring(self.get_srdf_explicit())
+
+        gripper = srdf.find(".//gripper[@name='" + gripper + "']")
+        if gripper is None:
+            # rospy.logerr(F"Could not find gripper {gripper} in robot srdf")
+            return None
+
+        link = gripper.find("link")
+        if link is None:
+            # rospy.logwarn(F"No link information found in srdf for gripper {gripper}")
+            return None
+
+        return link.attrib["name"]
 
     def get_joint_names(self):
         """

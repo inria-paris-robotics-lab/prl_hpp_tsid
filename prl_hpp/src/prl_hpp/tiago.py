@@ -1,6 +1,6 @@
 import rospy
 
-from prl_pinocchio.tiago import robot #, commander_left_arm, commander_right_arm
+from prl_pinocchio.tiago import robot_commanders
 from prl_hpp.planner import Planner
 
 """
@@ -11,14 +11,17 @@ class Tiago_Planner(Planner):
     def __init__(self, robot):
         Planner.__init__(self, robot)
 
-    # def lock_grippers(self):
-    #     return self.lock_joints(self.robot.gripper_joints)
+    def lock_grippers(self):
+        return self.lock_joints(self.robot.gripper_joints)
 
-    # def lock_left_arm(self):
-    #     return self.lock_joints(self.robot.left_arm_joints)
+    def lock_left_arm(self):
+        return self.lock_joints(self.robot.left_arm_joints)
 
-    # def lock_right_arm(self):
-    #     return self.lock_joints(self.robot.right_arm_joints)
+    def lock_right_arm(self):
+        return self.lock_joints(self.robot.right_arm_joints)
+
+    def lock_head(self):
+        return self.lock_joints(self.robot.head_joints)
 
     # def left_gripper_at_pose(self, position, orientation, start_configuration = None):
     #     return self.tool_at_pose("/left_gripper_grasp_frame", position, orientation, start_configuration)
@@ -27,6 +30,6 @@ class Tiago_Planner(Planner):
     #     return self.tool_at_pose("/right_gripper_grasp_frame", position, orientation, start_configuration)
 
 def planner():
-    r = robot()
+    r, c_left, c_right = robot_commanders()
     planner = Tiago_Planner(r)
-    return r, planner
+    return r, c_left, c_right, planner

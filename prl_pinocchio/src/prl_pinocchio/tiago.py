@@ -3,6 +3,7 @@ import rospy
 import pinocchio as pin
 from sensor_msgs.msg import JointState
 from prl_pinocchio.tools.observer import Observer
+from prl_pinocchio.tools.configurations import ConfigurationConvertor
 from prl_pinocchio.robot import Robot
 from prl_pinocchio.commander import Commander
 """
@@ -18,6 +19,8 @@ class Tiago_Robot(Robot):
 
         self.joint_state_topic = joint_state_topic
         self._joint_state_obs = Observer(joint_state_topic, JointState)
+
+        self._configuration_convertor = ConfigurationConvertor(self.pin_robot_wrapper.model, self._joint_state_obs.get_last_msg().name)
 
         # Init joints group
         joints = self.get_joint_names()
@@ -47,29 +50,16 @@ class Tiago_Robot(Robot):
         ------
             AssertionError: If the adjusted configuration deviates too much from the original one.
         """
-        q = list(pin.neutral(self.pin_robot_wrapper.model))
-        v = [0] * self.pin_robot_wrapper.model.nv
-        tau = [0] * self.pin_robot_wrapper.model.nv
-
         msg = self._joint_state_obs.get_last_msg()
 
-        for ros_idx, joint_name in enumerate(msg.name):
-            pin_index = self.pin_robot_wrapper.model.names.tolist().index(joint_name)
-            pin_nq = self.pin_robot_wrapper.model.joints[pin_index].nq
-            if pin_nq != 1:
-                continue
-            pin_idxq = self.pin_robot_wrapper.model.joints[pin_index].idx_q
-            pin_idxv = self.pin_robot_wrapper.model.joints[pin_index].idx_v
-            q[pin_idxq] = msg.position[ros_idx]
-            v[pin_idxv] = msg.velocity[ros_idx]
-            tau[pin_idxv] = msg.effort[ros_idx]
-
-        return q, v, tau
+        return self._configuration_convertor.q_ros_to_pin(msg.position), \
+               self._configuration_convertor.v_ros_to_pin(msg.velocity), \
+               self._configuration_convertor.v_ros_to_pin(msg.effort),
 
 def robot_commanders():
     robot = Tiago_Robot("prl_tiago_description", "/joint_states")
     robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180deg/s^2
 
-    commander_left_arm  = Commander(robot, robot.left_arm_joints,  trajectory_action_name="/arm_left_controller",  fwd_action_name="")
-    commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/arm_right_controller", fwd_action_name="")
+    commander_left_arm  = Commander(robot, robot.left_arm_joints,  trajectory_action_name="/safe_arm_left_controller/follow_joint_trajectory",  fwd_action_name="")
+    commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/safe_arm_right_controller/follow_joint_trajectory", fwd_action_name="")
     return robot, commander_left_arm, commander_right_arm

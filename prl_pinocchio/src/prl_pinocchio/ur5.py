@@ -1,6 +1,7 @@
 import rospy
 from sensor_msgs.msg import JointState
 from prl_pinocchio.tools.observer import Observer
+from prl_pinocchio.tools.configurations import ConfigurationConvertor
 from prl_pinocchio.robot import Robot
 from prl_pinocchio.commander import Commander
 """
@@ -27,8 +28,7 @@ class UR5_Robot(Robot):
         self._joint_state_obs = Observer(joint_state_topic, JointState)
 
         # Prepare lookup table to re-arrange q, v, a from ros to pinocchio format, etc..
-        ros_joint_names = list(self._joint_state_obs.get_last_msg().name)
-        self._q_pin_to_ros, self._q_ros_to_pin, self._v_pin_to_ros, self._v_ros_to_pin = self.create_dof_lookup(ros_joint_names)
+        self._configuration_convertor = ConfigurationConvertor(self.pin_robot_wrapper.model, self._joint_state_obs.get_last_msg().name)
 
         # Init joints group
         joints = self.get_joint_names()
@@ -37,27 +37,6 @@ class UR5_Robot(Robot):
         # joints = set(joints) - set(self.gripper_joints) # Remove grippers joints from list
         self.left_arm_joints  = list(filter(lambda joint: joint.lower().find("left")  != -1 and joint.lower().find("gripper") == -1, joints))
         self.right_arm_joints = list(filter(lambda joint: joint.lower().find("right") != -1 and joint.lower().find("gripper") == -1, joints))
-
-    def _rearrange_ros_to_pin(self, q=None, v=None, tau=None):
-        res  = []
-
-        # Remark: to convert a q (from ros) to a q (from pin), it use q_pin_to_ros because we want the ros index for each pin index (1, 2, 3, 4, ...)
-        # So then it picks the appropriate ros coordinate and arrange them in order.
-        if q != None:
-            rospy.logwarn(len(q))
-            rospy.logwarn(max(self._q_pin_to_ros))
-            q_res = [q[self._q_pin_to_ros[i]] for i in range(len(q))]
-            res.append(q_res)
-
-        if v != None:
-            v_res = [v[self._v_pin_to_ros[i]] for i in range(len(v))]
-            res.append(v_res)
-
-        if tau != None:
-            tau_res = [tau[self._v_pin_to_ros[i]] for i in range(len(tau))]
-            res.append(tau_res)
-
-        return res
 
     def _get_raw_meas_qvtau(self):
         """
@@ -81,13 +60,9 @@ class UR5_Robot(Robot):
         """
         joints_state = self._joint_state_obs.get_last_msg()
 
-        q = list(joints_state.position)
-        v = list(joints_state.velocity)
-        tau = list(joints_state.effort)
-
-        q, v, tau = self._rearrange_ros_to_pin(q=q, v=v, tau=tau)
-
-        return q, v, tau
+        return self._configuration_convertor.q_ros_to_pin(joints_state.position), \
+                self._configuration_convertor.v_ros_to_pin(joints_state.velocity), \
+                self._configuration_convertor.v_ros_to_pin(joints_state.effort)
 
 robot = UR5_Robot("prl_ur5_description", "joint_states")
 

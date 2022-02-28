@@ -4,7 +4,7 @@ from prl_pinocchio.tiago import robot_commanders
 from prl_hpp.planner import Planner
 
 """
- Create instances of Robot, Planner and Commander classes, dedicated for the Double-UR5 robot.
+ Create instances of Robot, Planner and Commander classes, dedicated for the Tiago robot.
 """
 
 class Tiago_Planner(Planner):

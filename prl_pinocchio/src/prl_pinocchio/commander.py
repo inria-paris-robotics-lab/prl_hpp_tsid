@@ -3,6 +3,7 @@ import actionlib
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from std_msgs.msg import Float64MultiArray, MultiArrayDimension
+from prl_pinocchio.tools.configurations import ConfigurationConvertor
 
 class Commander:
     """
@@ -32,9 +33,6 @@ class Commander:
         # Create action client to send the commands
         self._traj_action_client = None
         self._fwd_pub_topic = None
-
-        # Extract indexes of the joints from the full robot to actually command with this commander
-        self._commanded_joints_indexes = self._get_joint_indexes(jointsName, self.robot.get_joint_names())
 
     def start_trajecotry(self):
         """
@@ -83,17 +81,21 @@ class Commander:
             raise AssertionError("Action client not initialized. Did you call start_trajecotry() first.")
 
         # Find indexes of the commanded joints in the path
-        commanded_joints_indexes = self._get_joint_indexes(self.jointsName, path.jointList)
-        robot_joints_indexes = self._get_joint_indexes(self.robot.get_joint_names(), path.jointList)
+        converter_ros = ConfigurationConvertor(self.robot.pin_robot_wrapper.model, self.jointsName)
 
-        # Small function to extract only interresting joints from a configuration in path
-        def filterJoints(q_in, joints):
-            q_out = [q_in[index] for index in joints]
-            return q_out
+        for i in range(len(path.jointList)):
+            if(self.robot.pin_robot_wrapper.model.names[i+1] != path.jointList[i]):
+                print(self.robot.pin_robot_wrapper.model.names[i+1], path.jointList[i])
+
+        # Assume that the robot is always the first components of the configuraitons
+        def q_hpp_to_pin(q):
+            return q[:self.robot.pin_robot_wrapper.model.nq]
+        def v_hpp_to_pin(v):
+            return v[:self.robot.pin_robot_wrapper.model.nv]
 
         # Check that the robot is close to the start configuration
-        q_start = filterJoints(path.corbaPath.call(0)[0], robot_joints_indexes)
-        assert self.robot.is_at_config(q_start), "The robot current configuration differs too much from the start configuration of the path"
+        q_start = q_hpp_to_pin(path.corbaPath.call(0)[0])
+        assert self.robot.is_at_config(q_start, 1e-1), "The robot current configuration differs too much from the start configuration of the path"
 
         # Create ROS message
         jointTraj = JointTrajectory(joint_names = self.jointsName)
@@ -102,14 +104,13 @@ class Commander:
         t = 0
         while t < path.corbaPath.length():
             t_ros = rospy.Time.from_sec(t)
-            q = filterJoints(path.corbaPath.call(t)[0], commanded_joints_indexes)
-            q_dot = filterJoints(path.corbaPath.derivative(t, 1), commanded_joints_indexes)
+            q = converter_ros.q_pin_to_ros(q_hpp_to_pin(path.corbaPath.call(t)[0]))
+            q_dot = converter_ros.v_pin_to_ros(v_hpp_to_pin(path.corbaPath.derivative(t, 1)))
             point = JointTrajectoryPoint(positions = q, velocities = q_dot, time_from_start = t_ros)
             jointTraj.points.append(point)
             t += self.DT
 
-        # Make header timestamp and send goal to controller
-        jointTraj.header.stamp = rospy.get_rostime()
+        # Send trajectory to controller
         self._traj_action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
 
         # Wait for the path to be fully executed
@@ -147,17 +148,6 @@ class Commander:
         # Make header timestamp and send goal to controller
         jointTraj.header.stamp = rospy.Time(0)
         self._traj_action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
-
-    def _get_joint_indexes(self, jointSubSet, jointSet, strict = True):
-        indexes = []
-        for sub_joint in jointSubSet:
-            for i, joint in enumerate(jointSet):
-                if sub_joint == joint:
-                    indexes.append(i)
-                    break #next joint
-        assert (not strict) or (len(indexes)==len(jointSubSet)), "Not all joint from the subset could be found in the set for :" + str(jointSubSet) + "\n in :" + str(jointSet)
-        return indexes
-
 
     def execute_step_fwd(self, v):
         """

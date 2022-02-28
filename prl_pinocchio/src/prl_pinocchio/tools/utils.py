@@ -23,7 +23,7 @@ def compare_configurations(model, q_1, q_2, threshold = 0.001):
     -------
         isEqual (bool): True if the two configurations are close enough.
     """
-    return pin.distance(model, np.array(q_1), np.array(q_2)) < threshold
+    return pin.isSameConfiguration(model, np.array(q_1), np.array(q_2), threshold)
 
 def compare_poses(pose_1, pose_2, threshold = 0.001):
     """

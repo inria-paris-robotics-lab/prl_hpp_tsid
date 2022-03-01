@@ -79,7 +79,7 @@ class Robot:
             for i, pos in enumerate(q):
                 pos = max(pos, self.pin_robot_wrapper.model.lowerPositionLimit[i])
                 pos = min(pos, self.pin_robot_wrapper.model.upperPositionLimit[i])
-                assert abs(pos - q[i]) < 1e-3 #, F"Joint {i} way out of bounds : {self.pin_robot_wrapper.pin_model.names[i+1]}"
+                assert abs(pos - q[i]) < 1e-3 , "Joint " + str(i) + " way out of bounds : " + self.pin_robot_wrapper.model.names[i+1]
                 q[i] = pos
 
         return q, v, tau
@@ -175,12 +175,12 @@ class Robot:
 
         gripper = srdf.find(".//gripper[@name='" + gripper + "']")
         if gripper is None:
-            # rospy.logerr(F"Could not find gripper {gripper} in robot srdf")
+            rospy.logerr("Could not find gripper " + gripper + " in robot srdf")
             return None
 
         link = gripper.find("link")
         if link is None:
-            # rospy.logwarn(F"No link information found in srdf for gripper {gripper}")
+            rospy.logwarn("No link information found in srdf for gripper " + gripper)
             return None
 
         return link.attrib["name"]

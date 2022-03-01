@@ -38,5 +38,5 @@
         extrinsic_calibration_dir:=$(arg extrinsic_calibration_dir)
         $(arg multi)" />
 
-    <param name="prl_tiago_description/srdf" command="cat $(find prl_pinocchio)/urdf_srdf/prl_tiago_robot.srdf"/>
+    <param name="prl_tiago_description/srdf" command="sed -e '/&lt;robot name=&#34;tiago_dual&#34;&gt;/r $(find prl_pinocchio)/urdf_srdf/prl_tiago_robot.srdf.partial' -e '1d' $(find tiago_dual_moveit_config)/config/srdf/tiago_dual_$(arg end_effector_left)_$(arg ft_sensor_left)_$(arg end_effector_right)_$(arg ft_sensor_right).srdf"/>
 </launch>

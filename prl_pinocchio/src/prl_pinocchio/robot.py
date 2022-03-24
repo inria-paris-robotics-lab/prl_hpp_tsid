@@ -50,7 +50,7 @@ class Robot:
         ------
             AssertionError: If the adjusted configuration deviates too much from the original one.
         """
-        q, _, _ = self.get_meas_qvtau(raw)
+        _, q, _, _ = self.get_meas_qvtau(raw)
         return q
 
     def get_meas_qvtau(self, raw=False):
@@ -73,7 +73,7 @@ class Robot:
         ------
             AssertionError: If the adjusted configuration deviates too much from the original one.
         """
-        q, v, tau = self._get_raw_meas_qvtau()
+        t, q, v, tau = self._get_raw_meas_qvtau()
 
         if not raw:
             for i, pos in enumerate(q):
@@ -82,7 +82,7 @@ class Robot:
                 assert abs(pos - q[i]) < 1e-3 , "Joint " + str(i) + " way out of bounds : " + self.pin_robot_wrapper.model.names[i+1]
                 q[i] = pos
 
-        return q, v, tau
+        return t, q, v, tau
 
     def _get_raw_meas_qvtau(self):
         """

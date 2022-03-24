@@ -5,12 +5,12 @@
   <link name="gripper_left_grasping_frame" />
 </gripper>
 
-<gripper name="r_gripper" clearance="0">
+<!-- <gripper name="r_gripper" clearance="0">
   <position> 0 0 0 .707 -.707 0 0 </position>
   <link name="hand_right_grasping_frame" />
-</gripper>
+</gripper> -->
 
-<!-- <gripper name="r_gripper" clearance="0">
+<gripper name="r_gripper" clearance="0">
   <position> 0 0 0 0 1 0 0 </position>
   <link name="gripper_right_grasping_frame" />
-</gripper> -->
+</gripper>

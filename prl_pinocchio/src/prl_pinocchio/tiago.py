@@ -52,14 +52,15 @@ class Tiago_Robot(Robot):
         """
         msg = self._joint_state_obs.get_last_msg()
 
-        return self._configuration_convertor.q_ros_to_pin(msg.position), \
+        return msg.header.stamp.to_sec(), \
+               self._configuration_convertor.q_ros_to_pin(msg.position), \
                self._configuration_convertor.v_ros_to_pin(msg.velocity), \
                self._configuration_convertor.v_ros_to_pin(msg.effort),
 
 def robot_commanders():
     robot = Tiago_Robot("prl_tiago_description", "/joint_states")
-    robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180deg/s^2
+    robot.MAX_JOINT_ACC = 2. * 3.1415926 / 1.0 # 180deg/s^2
 
-    commander_left_arm  = Commander(robot, robot.left_arm_joints,  trajectory_action_name="/safe_arm_left_controller/follow_joint_trajectory",  fwd_action_name="")
-    commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/safe_arm_right_controller/follow_joint_trajectory", fwd_action_name="")
+    commander_left_arm  = Commander(robot, robot.left_arm_joints,  trajectory_action_name="/arm_left_controller/follow_joint_trajectory", trajectory_cmd_name="/arm_left_controller/command", fwd_action_name="")
+    commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/arm_right_controller/follow_joint_trajectory",trajectory_cmd_name="/arm_right_controller/command", fwd_action_name="")
     return robot, commander_left_arm, commander_right_arm

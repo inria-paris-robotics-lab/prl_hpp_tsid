@@ -12,7 +12,7 @@ class Commander:
 
     DT = 1/125. # control frequency
 
-    def __init__(self, robot, jointsName, trajectory_action_name=None, fwd_action_name=None, speedScaling = 1.0, accScaling = 1.0):
+    def __init__(self, robot, jointsName, trajectory_action_name=None, trajectory_cmd_name=None, fwd_action_name=None, speedScaling = 1.0, accScaling = 1.0):
         """
         Parameters
         ----------
@@ -27,11 +27,16 @@ class Commander:
         self.jointsName = jointsName
         self.robot = robot
 
+        # Convert configuration from pin to ros
+        self.converter = ConfigurationConvertor(self.robot.pin_robot_wrapper.model, self.jointsName)
+
         self._trajectory_action_name = trajectory_action_name
+        self._trajectory_cmd_name = trajectory_cmd_name
         self._fwd_action_name = fwd_action_name
 
         # Create action client to send the commands
         self._traj_action_client = None
+        self._traj_cmd_pub = None
         self._fwd_pub_topic = None
 
     def start_trajecotry(self):
@@ -48,6 +53,19 @@ class Commander:
                 self._traj_action_client.wait_for_server(timeout=rospy.Duration.from_sec(10.0))
             else:
                 rospy.logwarn("No action server name provided. start_trajecotry() is skipped.")
+
+    def start_trajecotry_cmd(self):
+        """
+        Start the commander for trajectory control.
+
+        This requires to have initialized the ROS node already.
+        """
+        # Check if the action client is already created
+        if self._traj_cmd_pub is None:
+            if self._trajectory_cmd_name is not None:
+                self._traj_cmd_pub = rospy.Publisher(self._trajectory_cmd_name, JointTrajectory, queue_size=1)
+            else:
+                rospy.logwarn("No topic name provided. start_trajecotry_cmd() is skipped.")
 
     def start_fwd(self):
         """
@@ -80,9 +98,6 @@ class Commander:
             rospy.logerr("Action client not initialized. Did you call start_trajecotry() first.")
             raise AssertionError("Action client not initialized. Did you call start_trajecotry() first.")
 
-        # Find indexes of the commanded joints in the path
-        converter_ros = ConfigurationConvertor(self.robot.pin_robot_wrapper.model, self.jointsName)
-
         for i in range(len(path.jointList)):
             if(self.robot.pin_robot_wrapper.model.names[i+1] != path.jointList[i]):
                 print(self.robot.pin_robot_wrapper.model.names[i+1], path.jointList[i])
@@ -104,13 +119,14 @@ class Commander:
         t = 0
         while t < path.corbaPath.length():
             t_ros = rospy.Time.from_sec(t)
-            q = converter_ros.q_pin_to_ros(q_hpp_to_pin(path.corbaPath.call(t)[0]))
-            q_dot = converter_ros.v_pin_to_ros(v_hpp_to_pin(path.corbaPath.derivative(t, 1)))
+            q = self.converter.q_pin_to_ros(q_hpp_to_pin(path.corbaPath.call(t)[0]))
+            q_dot = self.converter.v_pin_to_ros(v_hpp_to_pin(path.corbaPath.derivative(t, 1)))
             point = JointTrajectoryPoint(positions = q, velocities = q_dot, time_from_start = t_ros)
             jointTraj.points.append(point)
             t += self.DT
 
         # Send trajectory to controller
+        jointTraj.header.stamp = rospy.Time(0)
         self._traj_action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
 
         # Wait for the path to be fully executed
@@ -128,18 +144,17 @@ class Commander:
             dv      (float[]): joint acceleration reference.
             dt      (float[]): Duration during which to apply dt in order to get to (v_next, q_next).
         """
-        if self._traj_action_client is None:
-            rospy.logerr("Action client not initialized. Did you call start_trajecotry() first.")
-            raise AssertionError("Action client not initialized. Did you call start_trajecotry() first.")
+        if self._traj_cmd_pub is None:
+            rospy.logerr("Action client not initialized. Did you call start_trajecotry_cmd() first.")
+            raise AssertionError("Action client not initialized. Did you call start_trajecotry_cmd() first.")
 
-        # TODO: TO SOLVE !!
-        q_curr = [q_curr[i] for i in self._commanded_joints_indexes]
-        v_curr = [v_curr[i] for i in self._commanded_joints_indexes]
+        # q_curr = self.converter.q_pin_to_ros(q_curr)
+        # v_curr = self.converter.v_pin_to_ros(v_curr)
 
         # Filter joints
-        q_next = [q_next[i] for i in self._commanded_joints_indexes]
-        v_next = [v_next[i] for i in self._commanded_joints_indexes]
-        dv = [dv[i] for i in self._commanded_joints_indexes]
+        q_next = self.converter.q_pin_to_ros(q_next)
+        v_next = self.converter.v_pin_to_ros(v_next)
+        dv = self.converter.v_pin_to_ros(dv)
 
         # Create ROS message
         jointTraj = JointTrajectory(joint_names = self.jointsName, points = [ # JointTrajectoryPoint(positions = q_curr, velocities = v_curr, accelerations = dv, time_from_start = rospy.Time.from_sec(0)),
@@ -147,7 +162,7 @@ class Commander:
 
         # Make header timestamp and send goal to controller
         jointTraj.header.stamp = rospy.Time(0)
-        self._traj_action_client.send_goal(FollowJointTrajectoryGoal(trajectory=jointTraj))
+        self._traj_cmd_pub.publish(jointTraj)
 
     def execute_step_fwd(self, v):
         """

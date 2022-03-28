@@ -160,7 +160,8 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   scripts/example.py
-  scripts/example_hpp.py
+  scripts/example_ur5_hpp.py
+  scripts/example_tiago_hpp.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

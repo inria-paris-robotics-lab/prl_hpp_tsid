@@ -2,7 +2,6 @@ import rospy
 import actionlib
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
-from std_msgs.msg import Float64MultiArray, MultiArrayDimension
 from prl_pinocchio.tools.configurations import ConfigurationConvertor
 
 class Commander:
@@ -10,19 +9,19 @@ class Commander:
     This class is in charge of the control of the actual robot.
     """
 
-    DT = 1/125. # control frequency
-
-    def __init__(self, robot, jointsName, trajectory_action_name=None, trajectory_cmd_name=None, fwd_action_name=None, speedScaling = 1.0, accScaling = 1.0):
+    def __init__(self, robot, jointsName, trajectory_action_name=None, fwd_topic_name=None, speedScaling = 1.0, accScaling = 1.0):
         """
         Parameters
         ----------
             robot (Robot): Robot class to control. (see robot.py).
             jointsName (str[]): Name of the joints to actually command.
             trajectory_action_name (str): Name of the ros action server for controlling the robot with trajectories.
+            fwd_topic_name (str): Name of the ros topic for controlling the robot directly.
 
         Optionnals parameters:
         ----------------------
             speedScaling (float): Ratio to control the execution of path (relative to the robot maximum speed).
+            accScaling (float): Ratio to control the execution of path (relative to the robot maximum acceleration).
         """
         self.jointsName = jointsName
         self.robot = robot
@@ -31,12 +30,10 @@ class Commander:
         self.converter = ConfigurationConvertor(self.robot.pin_robot_wrapper.model, self.jointsName)
 
         self._trajectory_action_name = trajectory_action_name
-        self._trajectory_cmd_name = trajectory_cmd_name
-        self._fwd_action_name = fwd_action_name
+        self._fwd_topic_name = fwd_topic_name
 
         # Create action client to send the commands
         self._traj_action_client = None
-        self._traj_cmd_pub = None
         self._fwd_pub_topic = None
 
     def start_trajecotry(self):
@@ -54,39 +51,33 @@ class Commander:
             else:
                 rospy.logwarn("No action server name provided. start_trajecotry() is skipped.")
 
-    def start_trajecotry_cmd(self):
-        """
-        Start the commander for trajectory control.
-
-        This requires to have initialized the ROS node already.
-        """
-        # Check if the action client is already created
-        if self._traj_cmd_pub is None:
-            if self._trajectory_cmd_name is not None:
-                self._traj_cmd_pub = rospy.Publisher(self._trajectory_cmd_name, JointTrajectory, queue_size=1)
-            else:
-                rospy.logwarn("No topic name provided. start_trajecotry_cmd() is skipped.")
-
     def start_fwd(self):
         """
         Start the commander for fwd control.
 
         This requires to have initialized the ROS node already.
         """
+        from joint_group_ff_controllers.msg import setpoint
+
         # Check if the action client is already created
         if self._fwd_pub_topic is None:
-            if self._fwd_action_name is not None:
-                self._fwd_pub_topic = rospy.Publisher(self._fwd_action_name + "/command", Float64MultiArray, queue_size=1)
+            if self._fwd_topic_name is not None:
+                self._fwd_pub_topic = rospy.Publisher(self._fwd_topic_name, setpoint, queue_size=1)
             else:
                 rospy.logwarn("No action server name provided. start_fwd() is skipped.")
 
-    def execute_path(self, path, wait=True):
+    def execute_path(self, path, dt=1/125., wait=True):
         """
         Execute a path on the robot.
 
         Parameters
         ----------
             path (Path): path to execute.
+
+        Optionnal parameters:
+        ---------------------
+            dt (float): Time step to discretize the path.
+            wait (bool): If True, wait for the execution of the path to finish before returning.
 
         Raises
         ------
@@ -133,44 +124,16 @@ class Commander:
         if wait:
             self._traj_action_client.wait_for_result()
 
-    def execute_step_trajecotry(self, q_curr, v_curr, q_next, v_next, dv, dt):
-        """
-        Execute a (q, v, dv) for a dt period on the robot.
-
-        Parameters
-        ----------
-            q_next  (float[]): joint position reference.
-            v_next  (float[]): joint velocity reference.
-            dv      (float[]): joint acceleration reference.
-            dt      (float[]): Duration during which to apply dt in order to get to (v_next, q_next).
-        """
-        if self._traj_cmd_pub is None:
-            rospy.logerr("Action client not initialized. Did you call start_trajecotry_cmd() first.")
-            raise AssertionError("Action client not initialized. Did you call start_trajecotry_cmd() first.")
-
-        # q_curr = self.converter.q_pin_to_ros(q_curr)
-        # v_curr = self.converter.v_pin_to_ros(v_curr)
-
-        # Filter joints
-        q_next = self.converter.q_pin_to_ros(q_next)
-        v_next = self.converter.v_pin_to_ros(v_next)
-        dv = self.converter.v_pin_to_ros(dv)
-
-        # Create ROS message
-        jointTraj = JointTrajectory(joint_names = self.jointsName, points = [ # JointTrajectoryPoint(positions = q_curr, velocities = v_curr, accelerations = dv, time_from_start = rospy.Time.from_sec(0)),
-                                                                              JointTrajectoryPoint(positions = q_next, velocities = v_next, accelerations = dv, time_from_start = rospy.Time.from_sec(dt)),])
-
-        # Make header timestamp and send goal to controller
-        jointTraj.header.stamp = rospy.Time(0)
-        self._traj_cmd_pub.publish(jointTraj)
-
-    def execute_step_fwd(self, v):
+    def execute_fwd(self, q, v, tau, timeout):
         """
         Execute a velocity on the robot.
 
         Parameters
         ----------
-            v (float[]): joint velocity reference.
+            q (float[]): Goal configuration of the robot.
+            v (float[]): Goal velocity of the robot.
+            tau (float[]): Goal torque of the robot.
+            timeout (float): Timeout for the execution of the commands.
 
         Raises
         ------
@@ -181,12 +144,9 @@ class Commander:
             raise AssertionError("Action client not initialized. Did you call start_fwd() first.")
 
         # Filter joints
-        v = [v[i] for i in self._commanded_joints_indexes]
-
-        # Create ROS message
-        fwd = Float64MultiArray()
-        fwd.data = v
-        fwd.layout.dim.append(MultiArrayDimension(label='nv', size=len(v)))
+        q = self.converter.q_pin_to_ros(q)
+        v = self.converter.v_pin_to_ros(v)
+        tau = self.converter.v_pin_to_ros(tau)
 
         # Send goal to controller
-        self._fwd_pub_topic.publish(fwd)
+        self._fwd_pub_topic.publish(positions = q, velocities = v, efforts = tau, timeout = rospy.Duration(timeout))

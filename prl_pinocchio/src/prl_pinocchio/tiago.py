@@ -61,6 +61,6 @@ def robot_commanders():
     robot = Tiago_Robot("prl_tiago_description", "/joint_states")
     robot.MAX_JOINT_ACC = 2. * 3.1415926 / 1.0 # 180deg/s^2
 
-    commander_left_arm  = Commander(robot, robot.left_arm_joints,  trajectory_action_name="/arm_left_controller/follow_joint_trajectory", trajectory_cmd_name="/arm_left_controller/command", fwd_action_name="")
-    commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/arm_right_controller/follow_joint_trajectory",trajectory_cmd_name="/arm_right_controller/command", fwd_action_name="")
+    commander_left_arm  = Commander(robot, robot.left_arm_joints,  trajectory_action_name="/arm_left_controller/follow_joint_trajectory",  fwd_topic_name="/arm_left_controller/command")
+    commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/arm_right_controller/follow_joint_trajectory", fwd_topic_name="/arm_right_controller/command")
     return robot, commander_left_arm, commander_right_arm

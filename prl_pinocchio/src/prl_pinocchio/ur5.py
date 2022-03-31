@@ -60,7 +60,8 @@ class UR5_Robot(Robot):
         """
         joints_state = self._joint_state_obs.get_last_msg()
 
-        return self._configuration_convertor.q_ros_to_pin(joints_state.position), \
+        return  joints_state.header.stamp.to_sec(), \
+                self._configuration_convertor.q_ros_to_pin(joints_state.position), \
                 self._configuration_convertor.v_ros_to_pin(joints_state.velocity), \
                 self._configuration_convertor.v_ros_to_pin(joints_state.effort)
 
@@ -69,5 +70,5 @@ robot = UR5_Robot("prl_ur5_description", "joint_states")
 # Arbitrary value (as velocity and effort limits are already defined in the model)
 robot.MAX_JOINT_ACC = 3.1415926 / 1.0 # 180°/s^2
 
-commander_left_arm = Commander(robot, robot.left_arm_joints, trajectory_action_name="/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_action_name="/left_arm/joint_group_vel_controller")
-commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_action_name="/right_arm/joint_group_vel_controller")
+commander_left_arm = Commander(robot, robot.left_arm_joints, trajectory_action_name="/left_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_topic_name="/left_arm/ff_controller/command")
+commander_right_arm = Commander(robot, robot.right_arm_joints, trajectory_action_name="/right_arm/scaled_vel_joint_traj_controller/follow_joint_trajectory", fwd_topic_name="/right_arm/ff_controller/command")

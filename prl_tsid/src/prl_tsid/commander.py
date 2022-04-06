@@ -4,6 +4,8 @@ import numpy as np
 import pinocchio as pin
 
 class PathFollower:
+    TIMEOUT_STEP = 4
+
     def __init__(self, robot):
         ## Init the problem
         self.robot = robot
@@ -54,6 +56,9 @@ class PathFollower:
         ## Create the solver
         self.solver = tsid.SolverHQuadProgFast("qp solver")
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
+
+        # Collisions
+        collision_model = robot.collision_model
 
     def set_torque_limit(self, scale):
         tau_max = scale * self.tsid_robot.model().effortLimit
@@ -193,9 +198,31 @@ class PathFollower:
             v_mean = (v_next + v_meas) / 2
             q_next = pin.integrate(self.robot.pin_robot_wrapper.model, q_meas, v_mean * dt)
 
+            # Compute collisions
+            q_col, v_col, dv_col = q_next, v_next, dv_next
+            col_res, col_pairs = False, []
+            for i in range(1, self.TIMEOUT_STEP):
+                col_res, col_pairs = self.robot.compute_collisions(q_col, True)
+                if col_res:
+                    break
+                # integrate
+                if(velocity_ctrl):
+                    v_col = v_col
+                    v_col_mean = v_col
+                else:
+                    v_col_mean = v_col + 0.5 * dt*dv_col
+                    v_col = v_col + dt*dv_col
+                q_col = pin.integrate(self.robot.pin_robot_wrapper.model, q_col, v_col_mean * dt)
+
+            timeout = 0 if col_res else self.TIMEOUT_STEP*dt # Make the controller timeout instantly if a collision can occur
+
             # publish commands
             for commander in commanders:
-                commander.execute_fwd(q_next, v_next, tau_next, 4*dt)
+                commander.execute_fwd(q_next, v_next, tau_next, timeout)
+
+            if(col_res):
+                rospy.logerr("Possible collision detected at time %f, %d steps in the future (dt = %f):\n\tCollision pairs:\n\t\t- %s\n\t\t- %s", t, i, dt, col_pairs[0][0], col_pairs[0][1])
+                break
 
             # Wait for next step
             rate.sleep()

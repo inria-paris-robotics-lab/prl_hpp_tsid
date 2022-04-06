@@ -26,11 +26,36 @@ class Robot:
 
         self.pin_robot_wrapper = pinocchio.RobotWrapper(pin_model, pin_collision_model, pin_visual_model)
 
+        # Prepare collisions
+        self._init_collisions()
+
+    def _init_collisions(self):
+        self.collision_model = self.pin_robot_wrapper.collision_model
+        self.collision_model.addAllCollisionPairs()
+        pinocchio.removeCollisionPairsFromXML(self.pin_robot_wrapper.model, self.collision_model, self.get_srdf_explicit())
+        self.collision_data = pinocchio.GeometryData(self.collision_model)
+
     def get_urdf_explicit(self):
         return self._urdfStringExplicit
 
     def get_srdf_explicit(self):
         return self._srdfStringExplicit
+
+    def compute_collisions(self, q, stop_at_first_collision = False):
+        pinocchio.computeCollisions(self.pin_robot_wrapper.model, self.pin_robot_wrapper.data, self.collision_model, self.collision_data, q, stop_at_first_collision)
+
+        is_collided = False
+        collision_list = []
+        for i, res in enumerate(self.collision_data.collisionResults):
+            if res.isCollision():
+                is_collided = True
+                collision_list.append([
+                    self.collision_model.geometryObjects[self.collision_model.collisionPairs[i].first].name,
+                    self.collision_model.geometryObjects[self.collision_model.collisionPairs[i].second].name
+                ])
+                if(stop_at_first_collision):
+                    break
+        return is_collided, collision_list
 
     def get_meas_q(self, raw=False):
         """

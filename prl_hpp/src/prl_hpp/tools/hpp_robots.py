@@ -31,11 +31,11 @@ class HppRobot(Parent):
 
 class TargetRobotStrings:
     """Prepare and holds the urdf and srdf strings of the Target Robot (i.e. a robot that is just a freeflyer with a handle, and no collisions)"""
-    def __init__(self, clearance, *, double_handle = False):
+    def __init__(self, clearance, double_handle = False):
         srdf_suffix = "_double" if double_handle else ""
 
         self._urdfFilename = replace_path_to_absolute("package://prl_hpp/" +  "urdf_srdf/target.urdf")
-        self._srdfFilename = replace_path_to_absolute("package://prl_hpp/" + f"urdf_srdf/target{srdf_suffix}.srdf")
+        self._srdfFilename = replace_path_to_absolute("package://prl_hpp/" + "urdf_srdf/target"+srdf_suffix+".srdf")
 
         # Read file in strings
         urdf_file = open(self._urdfFilename, mode='r')

@@ -96,8 +96,10 @@ class Planner:
             q_current = self.robot.get_meas_q()
             jointValues = []
             for j_name in jointNames:
-                j_index = all_names.index(j_name)
-                jointValues.append(q_current[j_index])
+                j_index = list(self.robot.pin_robot_wrapper.model.names).index(j_name)
+                j_idx_q = self.robot.pin_robot_wrapper.model.joints[j_index].idx_q
+                j_nq = self.robot.pin_robot_wrapper.model.joints[j_index].nq
+                jointValues.extend(q_current[j_idx_q:j_idx_q+j_nq])
 
         # Create the constraints
         for i in range(len(jointNames)):
@@ -108,15 +110,14 @@ class Planner:
         self.lockJointConstraints.extend(constraintNames)
         return constraintNames
 
-    def make_gripper_approach(self, gripperName, position, orientation, approach_distance = 0.1, q_start = None, *, validate = True, do_not_plan = False):
+    def make_gripper_approach(self, gripperName, pose, approach_distance = 0.1, q_start = None, validate = True, do_not_plan = False):
         """
         Find a path that leads to the gripper at a certain pose with a certain approach direction.
 
         Parameters
         ----------
             gripperName (str): Names of the gripper (without robotName prefix), as defined in srdf.
-            position (float[3]): Desired postion of the tool in world frame.
-            orientation (float[3 or 4]): Desired orientation of the tool in world frame. (Can be euler angles or quaternions).
+            pose ([float[3], float[3 or 4]]): Desired pose (position, orientation) of the tool in world frame. (orientation can be euler angles or quaternions).
 
         Optionnals parameters:
         ----------------------
@@ -137,7 +138,7 @@ class Planner:
         if q_start == None:
             q_start = self.robot.get_meas_q()
 
-        orientation = Planner._convert_orientation(orientation)
+        pose[1] = self._convert_orientation(pose[1])
 
         self._reset_problem()
         gripperFullname = "robot/" + gripperName
@@ -147,7 +148,7 @@ class Planner:
         self._create_target("target", approach_distance)
 
         # The configuration space is now bigger because of the configuration of the target
-        q_start = q_start + (position + orientation)
+        q_start = q_start + pose[0] + pose[1]
 
         # Create the ConstraintGraph
         cg = self._create_simple_cg([gripperFullname], ['target'], [['target/handle']], validate, replace_target_constraints=True)
@@ -234,7 +235,7 @@ class Planner:
         """
         self.acceleration_scale = scale
 
-    def make_pick_and_place(self, gripperName, pose_pick, pose_place, approach_distance = 0.1, q_start = None, q_end = None, *, validate = True):
+    def make_pick_and_place(self, gripperName, pose_pick, pose_place, approach_distance = 0.1, q_start = None, q_end = None, validate = True):
         """
         Find 3 paths to pick an object, place the object and go to end position.
 
@@ -267,8 +268,8 @@ class Planner:
             q_end = q_start[:]
 
         # Convert euler rotations into quaternions (if needed)
-        pose_pick[1]  = Planner._convert_orientation(pose_pick[1])
-        pose_place[1] = Planner._convert_orientation(pose_place[1])
+        pose_pick[1]  = self._convert_orientation(pose_pick[1])
+        pose_place[1] = self._convert_orientation(pose_place[1])
 
         # Merge postion and orientation in one list
         pose_pick = pose_pick[0] + pose_pick[1]
@@ -365,7 +366,7 @@ class Planner:
                 Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperLink])
 
 
-    def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4, *, double_handle = False):
+    def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4, double_handle = False):
         target = TargetRobotStrings(clearance, double_handle = double_handle)
 
         # Create the target object target
@@ -413,7 +414,7 @@ class Planner:
         self.ps.optimizePath(pathId)
         return self.ps.numberPaths() -1
 
-    def _convert_orientation(orientation):
+    def _convert_orientation(self, orientation):
         """
         Return the orientation as quaternions
         """
@@ -437,7 +438,7 @@ class Planner:
             self.ps.appendDirectPath(pathId, q, False)
         return pathId
 
-    def _create_simple_cg(self, grippers, objects, objects_handles, validate, *, replace_target_constraints = False, rules = None):
+    def _create_simple_cg(self, grippers, objects, objects_handles, validate, replace_target_constraints = False, rules = None):
         # Rules
         if(rules is None):
             rules = [ Rule([".*"], [".*"], True), ]
@@ -458,11 +459,11 @@ class Planner:
             cgraph = cproblem.getConstraintGraph()
             for obj_i, obj in enumerate(objects):
                 for handle in objects_handles[obj_i]:
-                    constrain_name = F'implicit Transform {obj}/root_joint'
-                    self.ps.client.basic.problem.createTransformationR3xSO3Constraint(constrain_name, '',F'{obj}/root_joint', [0,0,0, 0,0,0,1], [0,0,0, 0,0,0,1], [True, True, True, True, True, True,])
+                    constrain_name = 'implicit Transform '+obj+'/root_joint'
+                    self.ps.client.basic.problem.createTransformationR3xSO3Constraint(constrain_name, '',''+obj+'/root_joint', [0,0,0, 0,0,0,1], [0,0,0, 0,0,0,1], [True, True, True, True, True, True,])
                     self.ps.setConstantRightHandSide(constrain_name, False)
                     for gripper in grippers: # TODO: Test this nested loop inner code in the case of multiple grippers and targets (is there any edges that haven't been updated ?)
-                        for edge_name_suffix in [F'> {handle} | f_01', F'> {handle} | f_12', F'< {handle} | 0-0_10', F'< {handle} | 0-0_21']:
+                        for edge_name_suffix in ['> '+handle+' | f_01', '> '+handle+' | f_12', '< '+handle+' | 0-0_10', '< '+handle+' | 0-0_21']:
                             edge_name = gripper + ' ' + edge_name_suffix
                             # edge_nb = cg.edges[edge_name]
                             # edge = cgraph.get(edge_nb)

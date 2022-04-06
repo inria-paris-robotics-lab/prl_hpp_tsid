@@ -26,7 +26,7 @@ class Commander:
         self.robot = robot
         self.action_client = actionlib.SimpleActionClient(action_name, FollowJointTrajectoryAction)
         rospy.loginfo("Waiting for action server "  + action_name)
-        self.action_client.wait_for_server()
+        self.action_client.wait_for_server(timeout=rospy.Duration.from_sec(10.0))
 
     def execute(self, path):
         """

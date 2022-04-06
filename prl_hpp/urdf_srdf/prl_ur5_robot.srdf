@@ -92,6 +92,10 @@
       <disable_collisions link1="right_camera_link" link2="right_gripper_finger_1_truss_arm"/>
       <disable_collisions link1="right_camera_link" link2="right_gripper_finger_2_truss_arm"/>
 
-
+      <disable_collisions link1="left_camera_link" link2="left_gripper_body"/>
+      <disable_collisions link1="left_camera_link" link2="left_gripper_finger_1_moment_arm"/>
+      <disable_collisions link1="left_camera_link" link2="left_gripper_finger_2_moment_arm"/>
+      <disable_collisions link1="left_camera_link" link2="left_gripper_finger_1_truss_arm"/>
+      <disable_collisions link1="left_camera_link" link2="left_gripper_finger_2_truss_arm"/>
 
 </robot>

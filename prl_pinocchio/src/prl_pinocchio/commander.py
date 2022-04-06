@@ -29,7 +29,7 @@ class Commander:
         self._trajectory_action_name = trajectory_action_name
         self._fwd_action_name = fwd_action_name
 
-        # Create action client to send the commands 
+        # Create action client to send the commands
         self._traj_action_client = None
         self._fwd_pub_topic = None
 
@@ -47,7 +47,7 @@ class Commander:
             if self._trajectory_action_name is not None:
                 self._traj_action_client = actionlib.SimpleActionClient(self._trajectory_action_name, FollowJointTrajectoryAction)
                 rospy.loginfo("Waiting for action server "  + self._trajectory_action_name)
-                self._traj_action_client.wait_for_server()
+                self._traj_action_client.wait_for_server(timeout=rospy.Duration.from_sec(10.0))
             else:
                 rospy.logwarn("No action server name provided. start_trajecotry() is skipped.")
 

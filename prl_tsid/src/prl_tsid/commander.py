@@ -65,7 +65,7 @@ class PathFollower:
         v_min = - v_max
         self.jointBoundsTask.setVelocityBounds(v_min, v_max)
 
-    def execute_path(self, path, commanders, dt):
+    def execute_path(self, path, commanders, dt, velocity_ctrl=False):
         # Init end effector tasks
         eeTasks_names = []
         eeTasks = []
@@ -166,7 +166,8 @@ class PathFollower:
 
             # Because we control the robot on velocity, a velocity feedback would destabilised the control,
             # thus we supposed that the velocity is tracked perfectly
-            # q_meas = q_next
+            if(velocity_ctrl):
+                v_meas = v_next
 
             # Solve
             HQPData = self.formulation.computeProblemData(t, q_meas, v_meas)

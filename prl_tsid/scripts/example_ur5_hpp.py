@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from prl_tsid.commander import PathFollower
 
 import rospy
@@ -23,10 +24,10 @@ commander_right_arm.start_fwd()
 
 # Exectute the trajectories using TSID
 pf = PathFollower(robot)
-pf.set_velocity_limit(0.25)
-pf.set_torque_limit(0.5)
+pf.set_velocity_limit(0.5)
+pf.set_torque_limit(0.75)
 
 path.targetFrames.append("right_gripper_grasp_frame")
 input("Press enter to execute path")
-pf.execute_path(path, [commander_left_arm, commander_right_arm], 0.02)
+pf.execute_path(path, [commander_left_arm, commander_right_arm], 0.02, True)
 

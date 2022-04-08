@@ -249,8 +249,11 @@ class Robot:
         # from pinocchio.visualize import RVizVisualizer
         # self.pin_robot_wrapper.setVisualizer(RVizVisualizer())
         # self.pin_robot_wrapper.initViewer(loadModel=True, initRosNode=False)
-        from pinocchio.visualize import GepettoVisualizer
-        self.pin_robot_wrapper.setVisualizer(GepettoVisualizer())
+        # from pinocchio.visualize import GepettoVisualizer
+        # self.pin_robot_wrapper.setVisualizer(GepettoVisualizer())
+        # self.pin_robot_wrapper.initViewer(loadModel=True)
+        from pinocchio.visualize import MeshcatVisualizer
+        self.pin_robot_wrapper.setVisualizer(MeshcatVisualizer())
         self.pin_robot_wrapper.initViewer(loadModel=True)
 
     def display(self, q):

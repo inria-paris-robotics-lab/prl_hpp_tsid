@@ -52,6 +52,7 @@ class PathFollower:
         ## Init the tasks
         self.set_torque_limit(1)
         self.set_velocity_limit(1)
+        self.set_acceleration_limit(1)
 
         ## Create the solver
         self.solver = tsid.SolverHQuadProgFast("qp solver")
@@ -69,6 +70,11 @@ class PathFollower:
         v_max = scale * self.tsid_robot.model().velocityLimit
         v_min = - v_max
         self.jointBoundsTask.setVelocityBounds(v_min, v_max)
+
+    def set_acceleration_limit(self, scale):
+        a_max = scale * self.robot.MAX_JOINT_ACC * np.ones(self.tsid_robot.nv)
+        a_min = - a_max
+        self.jointBoundsTask.setAccelerationBounds(a_min, a_max)
 
     def execute_path(self, path, commanders, dt, velocity_ctrl=False):
         # Init end effector tasks

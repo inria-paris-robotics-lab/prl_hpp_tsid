@@ -25,7 +25,7 @@ commander_right_arm.start_fwd()
 # Exectute the trajectories using TSID
 pf = PathFollower(robot)
 pf.set_velocity_limit(0.5)
-pf.set_torque_limit(0.75)
+pf.set_acceleration_limit(0.5)
 
 path.targetFrames.append("right_gripper_grasp_frame")
 input("Press enter to execute path")

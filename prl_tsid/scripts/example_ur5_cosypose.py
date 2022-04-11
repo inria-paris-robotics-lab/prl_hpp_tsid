@@ -11,7 +11,7 @@ rospy.init_node("TSID_example", anonymous=True)
 rospy.logwarn("init_node")
 
 # Plan a trajectory using HPP
-from prl_hpp.ur5 import robot, commander_left_arm, commander_right_arm
+from prl_hpp.ur5 import planner, robot, commander_left_arm, commander_right_arm
 pi = 3.1415926
 rospy.logwarn("imported")
 
@@ -19,12 +19,16 @@ rospy.logwarn("imported")
 commander_left_arm.start_fwd()
 commander_right_arm.start_fwd()
 
+planner.lock_grippers()
+planner.lock_right_arm()
+planner.set_velocity_limit(0.25)
+planner.set_acceleration_limit(0.25)
+
 # Exectute the trajectories using TSID
 pf = PathFollower(robot)
 pf.set_velocity_limit(0.5)
 pf.set_torque_limit(0.75)
 pf.set_acceleration_limit(0.1)
-
 
 import tf
 tf_listener = tf.TransformListener()
@@ -60,6 +64,15 @@ def fid_cb(msg):
 
 from fiducial_msgs.msg import FiducialTransformArray
 rospy.Subscriber("/fiducial_transforms", FiducialTransformArray, fid_cb)
+rospy.logwarn("cb registered")
 
-input("Press enter to execute motion")
+start_pose = [[-0.4, 0, 0.2], [0.5,0.5,0.5,0.5]]
+path = planner.make_gripper_approach(robot.left_gripper_name, start_pose, approach_distance = 0.01)
+path.targetFrames.append("right_gripper_grasp_frame")
+
+input("Press enter to execute initial motion")
+pf.execute_path(path, [commander_left_arm, commander_right_arm], 0.1, True)
+
+
+input("Press enter to execute TSID motion")
 pf.follow_velocity("left_gripper_grasp_frame", [commander_left_arm, commander_right_arm], 0.1, True)

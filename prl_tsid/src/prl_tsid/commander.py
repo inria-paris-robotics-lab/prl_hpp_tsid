@@ -25,19 +25,15 @@ class PathFollower:
         self.robot.display(q0)
 
         ## Create the tasks
-        self.K_ee = 10.
-        self.w_ee = 10
-        K_posture = 1. #0.1
-        w_posture = 1
+        self.w_posture = 1
 
         # Posture task
         self.postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
-        self.postureTask.setKp(K_posture * np.ones(self.tsid_robot.na))
-        self.postureTask.setKd(2.0 * np.sqrt(K_posture) * np.ones(self.tsid_robot.na))
+        # SET the gain before executing !
 
         self.postureSample = tsid.TrajectorySample(len(q0), len(v0))
 
-        self.formulation.addMotionTask(self.postureTask, w_posture, 1, 0.0)
+        self.formulation.addMotionTask(self.postureTask, self.w_posture, 1, 0.0)
 
         # End effector tasks
         # Will be defined in execute_path() as it varies on the end effectors
@@ -78,6 +74,15 @@ class PathFollower:
         self.jointBoundsTask.setAccelerationBounds(a_min, a_max)
 
     def execute_path(self, path, commanders, dt, velocity_ctrl=False):
+        # Gains
+        K_posture = 1.
+        w_ee = 0.1 * self.w_posture
+        K_ee = 1.
+
+        # Posture task
+        self.postureTask.setKp(K_posture * np.ones(self.tsid_robot.na))
+        self.postureTask.setKd(2.0 * np.sqrt(K_posture) * np.ones(self.tsid_robot.na))
+
         # Init end effector tasks
         eeTasks_names = []
         eeTasks = []
@@ -91,8 +96,8 @@ class PathFollower:
 
             eeTask_name = "ee-task-" + targetFrame
             eeTask = tsid.TaskSE3Equality(eeTask_name , self.tsid_robot, targetFrame)
-            eeTask.setKp(self.K_ee* np.ones(self.tsid_robot.na))
-            eeTask.setKd(2.0 * np.sqrt(self.K_ee) * np.ones(self.tsid_robot.na))
+            eeTask.setKp(K_ee* np.ones(self.tsid_robot.na))
+            eeTask.setKd(2.0 * np.sqrt(K_ee) * np.ones(self.tsid_robot.na))
             eeTask.useLocalFrame(True) # Represent jacobian in local frame
 
             eeIndexes.append(eeIndex)
@@ -100,7 +105,7 @@ class PathFollower:
             eeTasks.append(eeTask)
             eeSamples.append(tsid.TrajectorySample(12, 6))
 
-            self.formulation.addMotionTask(eeTask, self.w_ee, 1, 0.0)
+            self.formulation.addMotionTask(eeTask, w_ee, 1, 0.0)
 
         self.eeTasks = eeTasks
 
@@ -127,7 +132,7 @@ class PathFollower:
         q_next, v_next = q_meas, v_meas = np.array(q_meas), np.array(v_meas)
 
         # Loop
-        while elapsed_time < 2.0 * path.corbaPath.length():
+        while elapsed_time < 2.0 * path.corbaPath.length() and not rospy.is_shutdown():
             # Get robot state
             t_ros, q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
 
@@ -240,6 +245,15 @@ class PathFollower:
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
     def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False):
+        # Gains
+        K_posture = 1
+        w_ee = 10. * self.w_posture
+        K_ee = 10.
+
+        # Posture task
+        self.postureTask.setKp(K_posture * np.ones(self.tsid_robot.na))
+        self.postureTask.setKd(2.0 * np.sqrt(K_posture) * np.ones(self.tsid_robot.na))
+
         # Init end effector tasks
         eeIndex = self.robot.pin_robot_wrapper.model.getFrameId(targetFrame)
         assert eeIndex < len(self.robot.pin_robot_wrapper.model.frames), "Frame " + str(targetFrame) + " not found in the robot model : task related to that frame will be ignored"
@@ -247,11 +261,11 @@ class PathFollower:
         eeTask_name = "ee-task-" + targetFrame
         eeTask = tsid.TaskSE3Equality(eeTask_name , self.tsid_robot, targetFrame)
         eeTask.useLocalFrame(True) # Represent jacobian in local frame
-        eeTask.setKp(self.K_ee* np.ones(self.tsid_robot.na))
-        eeTask.setKd(2.0 * np.sqrt(self.K_ee) * np.ones(self.tsid_robot.na))
+        eeTask.setKp(K_ee* np.ones(self.tsid_robot.na))
+        eeTask.setKd(2.0 * np.sqrt(K_ee) * np.ones(self.tsid_robot.na))
 
         self.eeSample = tsid.TrajectorySample(12, 6)
-        self.formulation.addMotionTask(eeTask, self.w_ee, 1, 0.0)
+        self.formulation.addMotionTask(eeTask, w_ee, 1, 0.0)
 
         # Resize solver
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)

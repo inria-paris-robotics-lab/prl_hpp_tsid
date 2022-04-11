@@ -5,7 +5,7 @@ import pinocchio as pin
 
 class PathFollower:
     TIMEOUT_STEP = 2
-    COLLISION_STEP = 4
+    COLLISION_STEP = 2
 
     def __init__(self, robot):
         ## Init the problem
@@ -246,8 +246,8 @@ class PathFollower:
 
     def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False):
         # Gains
-        K_posture = 1
-        w_ee = 10. * self.w_posture
+        K_posture = 0.1
+        w_ee = 100. * self.w_posture
         K_ee = 10.
 
         # Posture task

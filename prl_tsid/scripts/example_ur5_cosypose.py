@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-# roslaunch aruco_detect aruco_detect.launch camera:=left_camera/color image:=image_rect_color fiducial_len:=0.08 dictionary:=5
+# roslaunch prl_ur5_run real.launch velocity_control:=true ff_control:=true moveit:=false sensors:=true enable_right_camera:=false
+# roslaunch ros_cosypose singleview_loop.launch bringup_camera:=false dataset:=ycbv debug:=true camera_name:=left_camera/color detection_threshold:=0.85
 
 from prl_tsid.commander import PathFollower
 import numpy as np
@@ -32,38 +33,38 @@ pf.set_acceleration_limit(0.1)
 
 import tf
 tf_listener = tf.TransformListener()
-def fid_cb(msg):
-    fid = None
-    for fiducial in msg.transforms:
-        if(fiducial.fiducial_id == 0):
-            fid = fiducial
+def cosy_cb(msg):
+    bottle = None
+    for obj in msg.objects:
+        if(obj.label == "obj_000014"):
+            bottle = obj
             break
 
-    if not fid:
+    if not bottle:
         return
 
     tf_listener.waitForTransform("prl_ur5_base", msg.header.frame_id, msg.header.stamp, rospy.Duration(4.0))
     camera_pose = tf_listener.lookupTransform("prl_ur5_base", msg.header.frame_id, msg.header.stamp)
 
     baseMcamera = pin.XYZQUATToSE3(camera_pose[0] + camera_pose[1])
-    cameraMfid = pin.XYZQUATToSE3([fid.transform.translation.x, fid.transform.translation.y, fid.transform.translation.z, fid.transform.rotation.x, fid.transform.rotation.y, fid.transform.rotation.z, fid.transform.rotation.w])
-    baseMfid = baseMcamera * cameraMfid
+    cameraMbottle = pin.XYZQUATToSE3([bottle.pose.position.x, bottle.pose.position.y, bottle.pose.position.z, bottle.pose.orientation.x, bottle.pose.orientation.y, bottle.pose.orientation.z, bottle.pose.orientation.w])
+    baseMbottle = baseMcamera * cameraMbottle
 
-    gripperMgoal = pin.XYZQUATToSE3([.0,.0,.5, 0,0,0,1])
+    gripperMgoal = pin.XYZQUATToSE3([.0,.025,.30, 0,0,0,1])
 
-    # We give the fid the same rotation as the gripper
+    # We give the bottle the same rotation as the gripper
     baseMgripper = pin.XYZQUATToSE3([0,0,0, 0.5,0.5,0.5,0.5])
-    baseMfid.rotation =  baseMgripper.rotation
+    baseMbottle.rotation =  baseMgripper.rotation
 
-    baseMgoal = baseMfid * gripperMgoal.inverse()
+    baseMgoal = baseMbottle * gripperMgoal.inverse()
 
     ee_pos_vec = np.concatenate((baseMgoal.translation, baseMgoal.rotation.flatten('F')))
 
     pf.eeSample.value(ee_pos_vec)
 
 
-from fiducial_msgs.msg import FiducialTransformArray
-rospy.Subscriber("/fiducial_transforms", FiducialTransformArray, fid_cb)
+from ros_cosypose.msg import CosyObjectArray
+rospy.Subscriber("/cosyobject_list", CosyObjectArray, cosy_cb)
 rospy.logwarn("cb registered")
 
 start_pose = [[-0.4, 0, 0.2], [0.5,0.5,0.5,0.5]]

@@ -9,12 +9,12 @@ import pinocchio as pin
 
 import rospy
 rospy.init_node("TSID_example", anonymous=True)
-rospy.logwarn("init_node")
+rospy.loginfo("init_node")
 
 # Plan a trajectory using HPP
 from prl_hpp.ur5 import planner, robot, commander_left_arm, commander_right_arm
 pi = 3.1415926
-rospy.logwarn("imported")
+rospy.loginfo("imported")
 
 # Start the commanders
 commander_left_arm.start_fwd()
@@ -65,7 +65,7 @@ def cosy_cb(msg):
 
 from ros_cosypose.msg import CosyObjectArray
 rospy.Subscriber("/cosyobject_list", CosyObjectArray, cosy_cb)
-rospy.logwarn("cb registered")
+rospy.loginfo("cb registered")
 
 start_pose = [[-0.4, 0, 0.2], [0.5,0.5,0.5,0.5]]
 path = planner.make_gripper_approach(robot.left_gripper_name, start_pose, approach_distance = 0.01)

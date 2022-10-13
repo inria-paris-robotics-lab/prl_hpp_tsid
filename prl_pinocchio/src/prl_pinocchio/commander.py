@@ -114,7 +114,7 @@ class Commander:
             q_dot = self.converter.v_pin_to_ros(v_hpp_to_pin(path.corbaPath.derivative(t, 1)))
             point = JointTrajectoryPoint(positions = q, velocities = q_dot, time_from_start = t_ros)
             jointTraj.points.append(point)
-            t += self.DT
+            t += dt
 
         # Send trajectory to controller
         jointTraj.header.stamp = rospy.Time(0)

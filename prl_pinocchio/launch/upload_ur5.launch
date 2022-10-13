@@ -6,6 +6,7 @@
         setup:=standart_setup
         table:=true
         backwall:=true
+        ceiling:=true
         "/>
 
     <param name="prl_ur5_description/srdf" command="cat $(find prl_pinocchio)/urdf_srdf/prl_ur5_robot.srdf"/>

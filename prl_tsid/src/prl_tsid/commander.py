@@ -129,7 +129,8 @@ class PathFollower:
 
         # Initialize measures
         t, q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
-        q_next, v_next = q_meas, v_meas = np.array(q_meas), np.array(v_meas)
+        q_meas, v_meas = np.array(q_meas), np.array(v_meas)
+        v_next = np.zeros(self.tsid_robot.nv)
 
         # Loop
         while elapsed_time < 2.0 * path.corbaPath.length() and not rospy.is_shutdown():
@@ -190,6 +191,7 @@ class PathFollower:
             HQPData = self.formulation.computeProblemData(t, q_meas, v_meas)
             sol = self.solver.solve(HQPData)
             if(sol.status!=0):
+                np.set_printoptions(precision=4, suppress=True, threshold=np.inf, linewidth=np.inf)
                 print("Time  " + str(t) + " QP problem could not be solved! Error code: " + str(sol.status))
                 print("Posture tasks : ")
                 for i in range(len(eeTasks)):
@@ -280,7 +282,8 @@ class PathFollower:
 
         # Initialize measures
         t, q_meas, v_meas, v_dot_meas = self.robot.get_meas_qvtau(raw = True)
-        q_next, v_next, _ = q_meas, v_meas, v_dot_meas = np.array(q_meas), np.array(v_meas), np.array(v_dot_meas)
+        q_meas, v_meas, v_dot_meas = np.array(q_meas), np.array(v_meas), np.array(v_dot_meas)
+        v_next = np.zeros(self.tsid_robot.nv)
 
         q_ref = q_meas
         # Set posture reference
@@ -328,6 +331,7 @@ class PathFollower:
             HQPData = self.formulation.computeProblemData(t, q_meas, v_meas)
             sol = self.solver.solve(HQPData)
             if(sol.status!=0):
+                np.set_printoptions(precision=4, suppress=True, threshold=np.inf, linewidth=np.inf)
                 print("Time  " + str(t) + " QP problem could not be solved! Error code: " + str(sol.status))
                 print("Posture tasks : ")
                 print("   eeIndex     " + str(eeIndex))

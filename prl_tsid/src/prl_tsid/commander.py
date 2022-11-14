@@ -55,9 +55,6 @@ class PathFollower:
         self.solver = tsid.SolverHQuadProgFast("qp solver")
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
-        # Collisions
-        collision_model = robot.collision_model
-
     def set_torque_limit(self, scale):
         tau_max = scale * self.tsid_robot.model().effortLimit
         tau_min = - tau_max

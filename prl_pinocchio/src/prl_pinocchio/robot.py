@@ -30,10 +30,9 @@ class Robot:
         self._init_collisions()
 
     def _init_collisions(self):
-        self.collision_model = self.pin_robot_wrapper.collision_model
-        self.collision_model.addAllCollisionPairs()
-        pinocchio.removeCollisionPairsFromXML(self.pin_robot_wrapper.model, self.collision_model, self.get_srdf_explicit())
-        self.collision_data = pinocchio.GeometryData(self.collision_model)
+        self.pin_robot_wrapper.collision_model.addAllCollisionPairs()
+        pinocchio.removeCollisionPairsFromXML(self.pin_robot_wrapper.model, self.pin_robot_wrapper.collision_model, self.get_srdf_explicit())
+        self.pin_robot_wrapper.collision_data = pinocchio.GeometryData(self.pin_robot_wrapper.collision_model)
 
     def get_urdf_explicit(self):
         return self._urdfStringExplicit
@@ -41,17 +40,39 @@ class Robot:
     def get_srdf_explicit(self):
         return self._srdfStringExplicit
 
+    def remove_collision_pair(self, geom_1_name, geom_2_name):
+        geom_1_id = self.pin_robot_wrapper.collision_model.getGeometryId(geom_1_name)
+        geom_2_id = self.pin_robot_wrapper.collision_model.getGeometryId(geom_2_name)
+        assert geom_1_id < self.pin_robot_wrapper.collision_model.ngeoms, f"Geometry named '{geom_1_name}' not found in collision model"
+        assert geom_2_id < self.pin_robot_wrapper.collision_model.ngeoms, f"Geometry named '{geom_2_name}' not found in collision model"
+        col_pair = pinocchio.CollisionPair(geom_1_id, geom_2_id)
+        if(not self.pin_robot_wrapper.collision_model.existCollisionPair(col_pair)):
+            rospy.logwarn(f"Removing non-existing collision pair ('{geom_1_name}', '{geom_2_name}').")
+        self.pin_robot_wrapper.collision_model.removeCollisionPair(col_pair)
+        self.pin_robot_wrapper.collision_data = pinocchio.GeometryData(self.pin_robot_wrapper.collision_model)
+
+    def add_collision_pair(self, geom_1_name, geom_2_name):
+        geom_1_id = self.pin_robot_wrapper.collision_model.getGeometryId(geom_1_name)
+        geom_2_id = self.pin_robot_wrapper.collision_model.getGeometryId(geom_2_name)
+        assert geom_1_id < self.pin_robot_wrapper.collision_model.ngeoms, f"Geometry named '{geom_1_name}' not found in collision model"
+        assert geom_2_id < self.pin_robot_wrapper.collision_model.ngeoms, f"Geometry named '{geom_2_name}' not found in collision model"
+        col_pair = pinocchio.CollisionPair(geom_1_id, geom_2_id)
+        if(self.pin_robot_wrapper.collision_model.existCollisionPair(col_pair)):
+            rospy.logwarn(f"Adding already existing collision pair ('{geom_1_name}', '{geom_2_name}').")
+        self.pin_robot_wrapper.collision_model.addCollisionPair(col_pair)
+        self.pin_robot_wrapper.collision_data = pinocchio.GeometryData(self.pin_robot_wrapper.collision_model)
+
     def compute_collisions(self, q, stop_at_first_collision = False):
-        pinocchio.computeCollisions(self.pin_robot_wrapper.model, self.pin_robot_wrapper.data, self.collision_model, self.collision_data, q, stop_at_first_collision)
+        pinocchio.computeCollisions(self.pin_robot_wrapper.model, self.pin_robot_wrapper.data, self.pin_robot_wrapper.collision_model, self.pin_robot_wrapper.collision_data, q, stop_at_first_collision)
 
         is_collided = False
         collision_list = []
-        for i, res in enumerate(self.collision_data.collisionResults):
+        for i, res in enumerate(self.pin_robot_wrapper.collision_data.collisionResults):
             if res.isCollision():
                 is_collided = True
                 collision_list.append([
-                    self.collision_model.geometryObjects[self.collision_model.collisionPairs[i].first].name,
-                    self.collision_model.geometryObjects[self.collision_model.collisionPairs[i].second].name
+                    self.pin_robot_wrapper.collision_model.geometryObjects[self.pin_robot_wrapper.collision_model.collisionPairs[i].first].name,
+                    self.pin_robot_wrapper.collision_model.geometryObjects[self.pin_robot_wrapper.collision_model.collisionPairs[i].second].name
                 ])
                 if(stop_at_first_collision):
                     break

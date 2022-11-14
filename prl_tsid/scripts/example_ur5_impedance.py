@@ -60,6 +60,12 @@ path = planner.make_gripper_approach(robot.left_gripper_name, start_pose, approa
 input("Press enter to execute initial motion")
 pf.execute_path(path, [commander_left_arm], 0.1, velocity_ctrl = True)
 
+robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_0")
+robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_1")
+robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_flex_finger_0")
+robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_finger_tip_0")
+robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_finger_tip_1")
+robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_flex_finger_0")
 
 input("Press enter to execute TSID motion")
 pf.follow_velocity("left_gripper_grasp_frame", [commander_left_arm], 0.1, velocity_ctrl = True, Kp_ee = 0, Kd_ee = 6.0)

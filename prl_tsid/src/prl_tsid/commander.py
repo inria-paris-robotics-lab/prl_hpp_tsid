@@ -75,13 +75,14 @@ class PathFollower:
 
     def execute_path(self, path, commanders, dt, velocity_ctrl=False):
         # Gains
-        K_posture = 1.
+        Kp_posture = 10.
+        Kd_posture = 2.0 * np.sqrt(Kp_posture)
         w_ee = 0.1 * self.w_posture
-        K_ee = 1.
+        K_ee = 10.
 
         # Posture task
-        self.postureTask.setKp(K_posture * np.ones(self.tsid_robot.na))
-        self.postureTask.setKd(2.0 * np.sqrt(K_posture) * np.ones(self.tsid_robot.na))
+        self.postureTask.setKp(Kp_posture * np.ones(self.tsid_robot.na))
+        self.postureTask.setKd(Kd_posture * np.ones(self.tsid_robot.na))
 
         # Init end effector tasks
         eeTasks_names = []
@@ -246,11 +247,15 @@ class PathFollower:
             self.formulation.removeTask(taskname, 0.0)
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
-    def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False):
+    def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False, Kp_ee = None, Kd_ee = None):
         # Gains
-        K_posture = 0.1
-        w_ee = 100. * self.w_posture
-        K_ee = 10.
+        K_posture = 0
+        self.w_posture = 0
+        w_ee = 1
+        if Kp_ee == None:
+            Kp_ee = 10.
+        if Kd_ee == None:
+            Kd_ee = 2 * np.sqrt(Kp_ee)
 
         # Posture task
         self.postureTask.setKp(K_posture * np.ones(self.tsid_robot.na))
@@ -262,9 +267,9 @@ class PathFollower:
 
         eeTask_name = "ee-task-" + targetFrame
         eeTask = tsid.TaskSE3Equality(eeTask_name , self.tsid_robot, targetFrame)
-        eeTask.useLocalFrame(True) # Represent jacobian in local frame
-        eeTask.setKp(K_ee* np.ones(self.tsid_robot.na))
-        eeTask.setKd(2.0 * np.sqrt(K_ee) * np.ones(self.tsid_robot.na))
+        eeTask.useLocalFrame(False) # Represent jacobian in local frame
+        eeTask.setKp(Kp_ee * np.ones(self.tsid_robot.na))
+        eeTask.setKd(Kd_ee * np.ones(self.tsid_robot.na))
 
         self.eeSample = tsid.TrajectorySample(12, 6)
         self.formulation.addMotionTask(eeTask, w_ee, 1, 0.0)

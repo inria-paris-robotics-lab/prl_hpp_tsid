@@ -125,7 +125,7 @@ class Robot:
             for i, pos in enumerate(q):
                 pos = max(pos, self.pin_robot_wrapper.model.lowerPositionLimit[i])
                 pos = min(pos, self.pin_robot_wrapper.model.upperPositionLimit[i])
-                assert abs(pos - q[i]) < 1e-3 , "Joint " + str(i) + " way out of bounds : " + self.pin_robot_wrapper.model.names[i+1]
+                assert abs(pos - q[i]) < 1e-3 , "Joint [" + str(i) + "] " + self.pin_robot_wrapper.model.names[i+1] + " way out of bounds : " + str(pos) + " not in [" + str(self.pin_robot_wrapper.model.lowerPositionLimit[i]) + ", " + str(self.pin_robot_wrapper.model.upperPositionLimit[i]) + "]"
                 q[i] = pos
 
         return t, q, v, tau

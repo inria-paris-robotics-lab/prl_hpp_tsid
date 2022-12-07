@@ -137,7 +137,7 @@ def control_from_joy_cb(msg):
 
     print()
     ee_vel_vec_local = np.array([max_speed*msg.axes[6], max_speed*msg.axes[7], max_speed*msg.axes[1], 0, 0, max_rot*msg.axes[3]])
-    print("Cmd velocity : ", ee_vel_vec_local)
+    # print("Cmd velocity : ", ee_vel_vec_local)
 
     pf.eeVelSample.derivative(ee_vel_vec_local)
 
@@ -160,6 +160,6 @@ if __name__=='__main__':
     robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_flex_finger_0")
 
     input("Press enter to execute TSID motion...")
-    pf.follow_velocity("left_gripper_grasp_frame", [commander_left_arm], 0.1, velocity_ctrl = True, velocity_mask=[1,1,0,0,0,1])
+    pf.follow_velocity("left_gripper_grasp_frame", [commander_left_arm], 0.1, velocity_ctrl = True)
 
     input("Press enter to quit...")

@@ -244,17 +244,15 @@ class PathFollower:
             self.formulation.removeTask(taskname, 0.0)
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
-    def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False, Kp_ee = None, Kd_ee = None):
+    def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False, velocity_mask=[1,1,1,1,1,1]):
         # Gains
         K_posture = 0
         self.w_posture = 0
         w_ee = 1
-        if Kp_ee == None:
-            Kp_ee = 10.
-        if Kd_ee == None:
-            Kd_ee = 2 * np.sqrt(Kp_ee)
+        Kp_ee = 10.
+        Kd_ee = 2 * np.sqrt(Kp_ee)
 
-        # Posture task
+        # Disable posture task
         self.postureTask.setKp(K_posture * np.ones(self.tsid_robot.na))
         self.postureTask.setKd(2.0 * np.sqrt(K_posture) * np.ones(self.tsid_robot.na))
 
@@ -262,14 +260,25 @@ class PathFollower:
         eeIndex = self.robot.pin_robot_wrapper.model.getFrameId(targetFrame)
         assert eeIndex < len(self.robot.pin_robot_wrapper.model.frames), "Frame " + str(targetFrame) + " not found in the robot model : task related to that frame will be ignored"
 
-        eeTask_name = "ee-task-" + targetFrame
-        eeTask = tsid.TaskSE3Equality(eeTask_name , self.tsid_robot, targetFrame)
-        eeTask.useLocalFrame(False) # Represent jacobian in local frame
-        eeTask.setKp(Kp_ee * np.ones(self.tsid_robot.na))
-        eeTask.setKd(Kd_ee * np.ones(self.tsid_robot.na))
+        #    Lock position
+        eePosTask_name = "ee-pos-task-" + targetFrame
+        eePosTask = tsid.TaskSE3Equality(eePosTask_name , self.tsid_robot, targetFrame)
+        eePosTask.useLocalFrame(True) # Represent jacobian in local frame
+        eePosTask.setKp(Kp_ee * np.ones(self.tsid_robot.na))
+        eePosTask.setKd(Kd_ee * np.ones(self.tsid_robot.na))
+        eePosTask.setMask((~np.array(velocity_mask).astype(bool)).astype(int))
+        self.eePosSample = tsid.TrajectorySample(12, 6)
+        self.formulation.addMotionTask(eePosTask, w_ee, 1, 0.0)
 
-        self.eeSample = tsid.TrajectorySample(12, 6)
-        self.formulation.addMotionTask(eeTask, w_ee, 1, 0.0)
+        #    Follow velocity
+        eeVelTask_name = "ee-vel-task-" + targetFrame
+        eeVelTask = tsid.TaskSE3Equality(eeVelTask_name , self.tsid_robot, targetFrame)
+        eeVelTask.useLocalFrame(True) # Represent jacobian in local frame
+        eeVelTask.setKp(       np.zeros(self.tsid_robot.na))
+        eeVelTask.setKd(Kd_ee * np.ones(self.tsid_robot.na))
+        eeVelTask.setMask(np.array(velocity_mask))
+        self.eeVelSample = tsid.TrajectorySample(12, 6)
+        self.formulation.addMotionTask(eeVelTask, w_ee, 1, 0.0)
 
         # Resize solver
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
@@ -300,9 +309,13 @@ class PathFollower:
 
         ee_pos_vec = np.concatenate((ee_pos.translation, ee_pos.rotation.flatten('F')))
 
-        self.eeSample.value(ee_pos_vec)
-        self.eeSample.derivative(np.zeros(6))
-        self.eeSample.second_derivative(np.zeros(6))
+        self.eePosSample.value(ee_pos_vec)
+        self.eePosSample.derivative(np.zeros(6))
+        self.eePosSample.second_derivative(np.zeros(6))
+
+        self.eeVelSample.value(ee_pos_vec)
+        self.eeVelSample.derivative(np.zeros(6))
+        self.eeVelSample.second_derivative(np.zeros(6))
 
         # Loop
         while not rospy.is_shutdown():
@@ -318,7 +331,8 @@ class PathFollower:
             t = elapsed_time
 
             # Compute forward kinematics
-            eeTask.setReference(self.eeSample)
+            eePosTask.setReference(self.eePosSample)
+            eeVelTask.setReference(self.eeVelSample)
 
             # Feedback
             q_meas = np.array(q_meas)
@@ -337,12 +351,12 @@ class PathFollower:
                 print("Time  " + str(t) + " QP problem could not be solved! Error code: " + str(sol.status))
                 print("Posture tasks : ")
                 print("   eeIndex     " + str(eeIndex))
-                print("   eeTask_name " + str(eeTask_name))
-                print("   ee_pos_vec  " + str(self.eeSample.value()))
-                print("   ee_pos_err  " + str(eeTask.position_error))
-                print("   ee_vel_vec  " + str(self.eeSample.derivative()))
-                print("   ee_vel_err  " + str(eeTask.velocity_error))
-                print("   ee_acc_vec  " + str(self.eeSample.second_derivative()))
+                print("   eePosTask_name " + str(eePosTask_name))
+                print("   ee_pos_vec  " + str(self.eePosSample.value()))
+                print("   ee_pos_err  " + str(eePosTask.position_error))
+                print("   ee_vel_vec  " + str(self.eePosSample.derivative()))
+                print("   ee_vel_err  " + str(eePosTask.velocity_error))
+                print("   ee_acc_vec  " + str(self.eePosSample.second_derivative()))
                 break
 
             dv_next = self.formulation.getAccelerations(sol)
@@ -383,5 +397,6 @@ class PathFollower:
             rate.sleep()
 
         # Remove all the end effector tasks and resize solver
-        self.formulation.removeTask(eeTask_name, 0.0)
+        self.formulation.removeTask(eePosTask_name, 0.0)
+        self.formulation.removeTask(eeVelTask_name, 0.0)
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)

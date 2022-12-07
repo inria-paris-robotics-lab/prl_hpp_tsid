@@ -135,9 +135,7 @@ def control_from_joy_cb(msg):
     max_speed = 0.2
     max_rot = np.pi/2
 
-    print()
     ee_vel_vec_local = np.array([max_speed*msg.axes[6], max_speed*msg.axes[7], max_speed*msg.axes[1], 0, 0, max_rot*msg.axes[3]])
-    # print("Cmd velocity : ", ee_vel_vec_local)
 
     pf.eeVelSample.derivative(ee_vel_vec_local)
 

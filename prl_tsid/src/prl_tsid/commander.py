@@ -282,15 +282,9 @@ class PathFollower:
         self.eeVelSample.second_derivative(np.zeros(6))
 
         # Loop
-        t_next, q_next, v_next, a_next = self.robot.get_meas_qvtau(raw = True)
-        q_next = np.array(q_next)
-        v_next = np.array(v_next)
         while not rospy.is_shutdown():
             # Get robot state
-            # t_ros, q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
-            t_ros, _, _, _ = self.robot.get_meas_qvtau(raw = True)
-            q_meas = q_next
-            v_meas = v_next
+            t_ros, q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
 
             # Measure the current time
             if start_time is None:
@@ -354,10 +348,9 @@ class PathFollower:
 
             timeout = 0 if col_res else self.TIMEOUT_STEP*dt # Make the controller timeout instantly if a collision can occur
 
-            # # publish commands
-            # for commander in commanders:
-            #     commander.execute_fwd(q_next, v_next, tau_next, timeout).
-            self.robot.display(q_next)
+            # publish commands
+            for commander in commanders:
+                commander.execute_fwd(q_next, v_next, tau_next, timeout)
 
             if(col_res):
                 rospy.logerr("Possible collision detected at time %f, %d steps in the future (dt = %f):\n\tCollision pairs:\n\t\t- %s\n\t\t- %s", t, i, dt, col_pairs[0][0], col_pairs[0][1])

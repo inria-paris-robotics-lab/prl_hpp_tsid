@@ -268,12 +268,12 @@ class PathFollower:
         start_time = None
 
         # Initialize measures
-        t, q_meas, v_meas, v_dot_meas = self.robot.get_meas_qvtau(raw = True)
-        q_meas, v_meas, v_dot_meas = np.array(q_meas), np.array(v_meas), np.array(v_dot_meas)
+        t, q_meas, v_meas, _ = self.robot.get_meas_qvtau(raw = True)
+        q_meas, v_meas= np.array(q_meas), np.array(v_meas)
         v_next = np.zeros(self.tsid_robot.nv)
 
         # Set ee referece
-        self.robot.pin_robot_wrapper.forwardKinematics(q_meas, v_meas, v_dot_meas)
+        self.robot.pin_robot_wrapper.forwardKinematics(q_meas, v_meas)
         ee_pos = self.robot.pin_robot_wrapper.framePlacement(q_meas, eeIndex, update_kinematics=False) # No need to recompute the forwad kinematic
         ee_pos_vec = np.concatenate((ee_pos.translation, ee_pos.rotation.flatten('F')))
 

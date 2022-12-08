@@ -43,7 +43,6 @@ def is_frame_supported(model, parent_frame_id, child_frame_id):
         current_id = model.frames[current_id].previousFrame
     return model.frames[parent_frame_id].parent == model.frames[current_id].parent and current_id == parent_frame_id
 
-# Are we sure about this property ? => child_frame_id > parent_frame_id
 def compute_supported_frames_in_body(model, parent_frame_id):
     res = []
     for i,f in enumerate(model.frames[parent_frame_id:], start=parent_frame_id):
@@ -60,33 +59,20 @@ def compute_supported_inertia_in_body(model, frame_id):
     jMf = model.frames[frame_id].placement
     return jMf.actInv(j_inertia)
 
-def compute_direct_child_joint(model, frame_id):
-    parent_joint_id = model.frames[frame_id].parent
-    child_joints = model.subtrees[parent_joint_id]
-    direct_child_joints = []
-    for j_id in child_joints:
-        if(model.parents[j_id] == parent_joint_id):
-            direct_child_joints.append(j_id)
-    return direct_child_joints
-
-def compute_supported_inertia_crba(model, data, frame_id):
-    oMf = pin.updateFramePlacement(model, data, frame_id)
-    o_Inertia = oMf * compute_supported_inertia_in_body(model, frame_id)
-
-    joints = compute_direct_child_joint(model, frame_id)
-    for j_id in joints:
-        oMj = data.oMi[j_id]
-        joint_crb_inertia = data.Ycrb[j_id]
-        o_Inertia += oMj * joint_crb_inertia # Sum everything at origin for simplicity
-    return oMf.actInv(o_Inertia)
-
 def compute_supported_effort(model, data, frame_id):
-    inertia = compute_supported_inertia_crba(model, data, frame_id)
+    joint_id = model.frames[frame_id].parent
+    iMf = model.frames[frame_id].placement
+    oMf = data.oMi[joint_id] * iMf
+    inertia = compute_supported_inertia_in_body(model, frame_id)
     v_frame = pin.getFrameVelocity(model, data, frame_id, pin.ReferenceFrame.LOCAL)
     a_frame = pin.getFrameAcceleration(model, data, frame_id, pin.ReferenceFrame.LOCAL)
-    effort = inertia.vxiv(v_frame) + inertia * a_frame # Is it doing the right thing ?
-    effort -= inertia * model.gravity # Is it the right sign ?
-    return effort
+    effort = inertia.vxiv(v_frame) + inertia * (a_frame - oMf.actInv(model.gravity))
+    effort = iMf.act(effort)
+    for j_id in model.subtrees[joint_id][1:]:
+        if model.parents[j_id] != joint_id:
+            continue
+        effort += data.liMi[j_id].act(data.f[j_id])
+    return iMf.actInv(effort)
 ###################################
 
 def control_from_fts_cb(msg):
@@ -95,8 +81,10 @@ def control_from_fts_cb(msg):
 
     frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
     t, q, v, tau = robot.get_meas_qvtau()
-    pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, np.array(q), np.array(v), np.array(tau))
-    pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, np.array(q))
+    q, v, tau = np.array(q), np.array(v), np.array(tau)
+    robot.pin_robot_wrapper.forwardKinematics(q, v)
+    pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
+    pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q)
     effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
 
     wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
@@ -141,14 +129,14 @@ def control_from_joy_cb(msg):
 
 if __name__=='__main__':
     pub = rospy.Publisher("/left_ft_wrench_error", WrenchStamped, queue_size=0)
-    # rospy.Subscriber("/left_ft_wrench", WrenchStamped, control_from_fts_cb)
+    rospy.Subscriber("/left_ft_wrench", WrenchStamped, control_from_fts_cb)
     rospy.Subscriber("/joy", Joy, control_from_joy_cb)
 
-    start_pose = [[-0.6, 0.0, 0.05], [np.pi, 0, np.pi]]
-    path = planner.make_gripper_approach(robot.left_gripper_name, start_pose, approach_distance = 0.01)
+    # start_pose = [[-0.6, 0.0, 0.05], [np.pi, 0, np.pi]]
+    # path = planner.make_gripper_approach(robot.left_gripper_name, start_pose, approach_distance = 0.01)
 
-    input("Press enter to execute initial motion...")
-    pf.execute_path(path, [commander_left_arm], 0.1, velocity_ctrl = True)
+    # input("Press enter to execute initial motion...")
+    # pf.execute_path(path, [commander_left_arm], 0.1, velocity_ctrl = True)
 
     robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_0")
     robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_1")

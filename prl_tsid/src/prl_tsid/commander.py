@@ -31,33 +31,36 @@ class PathFollower:
         self.actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", self.tsid_robot)
         self.formulation.addActuationTask(self.actuationBoundsTask, 1, 0, 0.0)
 
-        # Joint velocity bounds task
-        self.jointBoundsTask = tsid.TaskJointBounds("task-joint-bounds", self.tsid_robot, 0.1) # dt will be re-set before executing
+        # Joint pos, vel, acc bounds task
+        self.jointBoundsTask = tsid.TaskJointPosVelAccBounds("task-joint-bounds", self.tsid_robot, 0.1) # dt will be re-set before executing
         self.formulation.addMotionTask(self.jointBoundsTask, 1, 0, 0.0)
 
         ## Init the tasks
-        self.set_torque_limit(1)
+        self._set_position_limit()
         self.set_velocity_limit(1)
         self.set_acceleration_limit(1)
+        self.set_torque_limit(1)
 
         ## Create the solver
-        self.solver = tsid.SolverHQuadProgFast("qp solver")
+        self.solver = tsid.SolverProxQP("qp solver")
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
+
+    def _set_position_limit(self):
+        self.jointBoundsTask.setPositionBounds(self.tsid_robot.model().lowerPositionLimit,
+                                               self.tsid_robot.model().upperPositionLimit)
+
+    def set_velocity_limit(self, scale):
+        v_max = scale * self.tsid_robot.model().velocityLimit
+        self.jointBoundsTask.setVelocityBounds(v_max)
+
+    def set_acceleration_limit(self, scale):
+        a_max = scale * self.robot.MAX_JOINT_ACC * np.ones(self.tsid_robot.nv)
+        self.jointBoundsTask.setAccelerationBounds(a_max)
 
     def set_torque_limit(self, scale):
         tau_max = scale * self.tsid_robot.model().effortLimit
         tau_min = - tau_max
         self.actuationBoundsTask.setBounds(tau_min, tau_max)
-
-    def set_velocity_limit(self, scale):
-        v_max = scale * self.tsid_robot.model().velocityLimit
-        v_min = - v_max
-        self.jointBoundsTask.setVelocityBounds(v_min, v_max)
-
-    def set_acceleration_limit(self, scale):
-        a_max = scale * self.robot.MAX_JOINT_ACC * np.ones(self.tsid_robot.nv)
-        a_min = - a_max
-        self.jointBoundsTask.setAccelerationBounds(a_min, a_max)
 
     def execute_path(self, path, commanders, dt, velocity_ctrl=False):
         # Gains
@@ -261,6 +264,14 @@ class PathFollower:
 
         # Update tasks parameters
         self.jointBoundsTask.setTimeStep(dt)
+        commanded_mask = [False] * self.tsid_robot.nv
+        for commander in commanders:
+            mask = commander.converter.v_pin_mask()
+            for i in range(len(commanded_mask)):
+                commanded_mask[i] |= mask[i]
+        rospy.logwarn(np.array(commanded_mask).astype(int))
+        self.jointBoundsTask.setMask(np.array(commanded_mask).astype(int))
+        self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
         # Prepare the loop
         rate = rospy.Rate(1. / dt)

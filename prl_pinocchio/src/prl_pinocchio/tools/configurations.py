@@ -52,6 +52,10 @@ class ConfigurationConvertor:
                 v_res[pin_idxv] = v_ros[ros_idxv]
         return v_res
 
+    ''' Return a vector of size nv, with True for pin joint corresponding to a ros joint, and False else where'''
+    def v_pin_mask(self):
+        return [False if idx == -1 else True for idx in self._idx_v_pin_to_ros]
+
     def debug_print(self):
         print("q:")
         print("pin\t->\tros")

@@ -84,6 +84,7 @@ def control_from_fts_cb(msg):
     try:
         t, q, v, tau = robot.get_meas_qvtau()
     except:
+        rospy.logwarn("Joint out of bounds send 0 velocity.")
         answer = WrenchStamped(header = msg.header)
         pub.publish(answer)
         return
@@ -132,7 +133,13 @@ def control_from_joy_cb(msg):
 
     vel_loc = pin.Motion(np.array([max_speed*msg.axes[6], max_speed*msg.axes[7], max_speed*msg.axes[1], 0, 0, max_rot*msg.axes[3]]))
 
-    _, q, _, _ = robot.get_meas_qvtau()
+
+    try:
+        _, q, _, _ = robot.get_meas_qvtau()
+    except:
+        rospy.logwarn("Joint out of bounds send 0 velocity.")
+        pf.eeVelSample.derivative(np.zeros(6))
+        return
 
     frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
     oMf = robot.pin_robot_wrapper.framePlacement(np.array(q), frame_id)

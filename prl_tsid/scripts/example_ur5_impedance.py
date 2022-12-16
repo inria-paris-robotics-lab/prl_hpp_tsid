@@ -80,7 +80,14 @@ def control_from_fts_cb(msg):
     max_rot = np.pi/2
 
     frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
-    t, q, v, tau = robot.get_meas_qvtau()
+
+    try:
+        t, q, v, tau = robot.get_meas_qvtau()
+    except:
+        answer = WrenchStamped(header = msg.header)
+        pub.publish(answer)
+        return
+
     q, v, tau = np.array(q), np.array(v), np.array(tau)
     robot.pin_robot_wrapper.forwardKinematics(q, v)
     pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)

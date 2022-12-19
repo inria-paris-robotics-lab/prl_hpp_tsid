@@ -94,7 +94,7 @@ def set_ee_vel(v):
     pf.eeVelSample.derivative(vel_glob.vector)
 
 SUB_INERTIAL_FT = False # Should the inertial forces be taken out manually
-FILT_WIN = int(1 / 0.01) # filter window =  1s @ 100Hz
+FILT_WIN = int(0.1 / 0.01) # filter window =  0.1s @ 100Hz
 filt_list = [pin.Force(np.zeros(6)) for _ in range(FILT_WIN)]
 filt_i = 0
 filt_avg = pin.Force(np.zeros(6))

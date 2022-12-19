@@ -76,6 +76,22 @@ def compute_supported_effort(model, data, frame_id):
 ###################################
 
 
+'''Transform the velocity e(expressed in the end effector frame) to the correct frame and set pf goal to it'''
+def set_ee_vel(v):
+    try:
+        _, q, _, _ = robot.get_meas_qvtau()
+    except:
+        rospy.logwarn("Joint out of bounds send 0 velocity.")
+        pf.eeVelSample.derivative(np.zeros(6))
+        return
+    vel_loc = pin.Motion(v)
+    frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
+    oMf = robot.pin_robot_wrapper.framePlacement(np.array(q), frame_id)
+    oMf_rot = pin.SE3(oMf.rotation, np.zeros(3))
+    vel_glob = oMf_rot.act(vel_loc)
+    pf.eeVelSample.derivative(vel_glob.vector)
+
+SUB_INERTIAL_FT = False # Should the inertial forces be taken out manually
 FILT_WIN = int(1 / 0.01) # filter window =  1s @ 100Hz
 filt_list = [pin.Force(np.zeros(6)) for _ in range(FILT_WIN)]
 filt_i = 0
@@ -91,26 +107,26 @@ def control_from_fts_cb(msg):
 
     answer = WrenchStamped(header = msg.header)
 
-    # # Already computed internally of the F/T sensor
-    frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
-    try:
-        t, q, v, tau = robot.get_meas_qvtau()
-    except:
-        rospy.logwarn("Joint out of bounds send 0 velocity.")
-        pf.eeVelSample.derivative(np.zeros(6))
-        answer = WrenchStamped(header = msg.header)
-        pub.publish(answer)
-        return
-    q, v, tau = np.array(q), np.array(v), np.array(tau)
-    robot.pin_robot_wrapper.forwardKinematics(q, v)
-    pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
-    pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q)
-    effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
-    wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
+    wrist_f = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
 
-    # wrist_f = effort + wrist_f_tot
-    wrist_f = wrist_f_tot
+    if(SUB_INERTIAL_FT):
+        frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
+        try:
+            t, q, v, tau = robot.get_meas_qvtau()
+        except:
+            rospy.logwarn("Joint out of bounds send 0 velocity.")
+            pf.eeVelSample.derivative(np.zeros(6))
+            return
 
+        q, v, tau = np.array(q), np.array(v), np.array(tau)
+        robot.pin_robot_wrapper.forwardKinematics(q, v)
+        pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
+        pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q)
+        effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
+
+        wrist_f += effort # External effort taken out
+
+    # Filtering the force signal
     filt_avg -= filt_list[filt_i]
     filt_list[filt_i] = wrist_f / FILT_WIN
     filt_avg += filt_list[filt_i]
@@ -124,62 +140,42 @@ def control_from_fts_cb(msg):
             continue
         res_fric[i] = filt_avg.vector[i] - np.sign(filt_avg.vector[i]) * fric
 
-    answer.wrench.force.x = res_fric[0]
-    answer.wrench.force.y = res_fric[1]
-    answer.wrench.force.z = res_fric[2]
-    answer.wrench.torque.x = res_fric[3]
-    answer.wrench.torque.y = res_fric[4]
-    answer.wrench.torque.z = res_fric[5]
+    # # Publish the force for debug
+    # answer.wrench.force.x = res_fric[0]
+    # answer.wrench.force.y = res_fric[1]
+    # answer.wrench.force.z = res_fric[2]
+    # answer.wrench.torque.x = res_fric[3]
+    # answer.wrench.torque.y = res_fric[4]
+    # answer.wrench.torque.z = res_fric[5]
+    # force_debug_pub.publish(answer)
 
-    pub.publish(answer)
-
+    # Compute the vel from the force (with limits)
     v = np.concatenate( [res_fric[:3] * max_trans_vel / max_trans_force, res_fric[3:] * max_rot_vel / max_rot_force] )
     v_limit = np.array([max_trans_vel]*3 + [max_rot_vel]*3)
     v = v.clip(-v_limit, v_limit)
 
-    v_msg = Twist()
-    v_msg.linear.x = v[0]
-    v_msg.linear.y = v[1]
-    v_msg.linear.z = v[2]
-    v_msg.angular.x = v[3]
-    v_msg.angular.y = v[4]
-    v_msg.angular.z = v[5]
-    pubpub.publish(v_msg)
+    # # Publish the vel for debug
+    # v_msg = Twist()
+    # v_msg.linear.x = v[0]
+    # v_msg.linear.y = v[1]
+    # v_msg.linear.z = v[2]
+    # v_msg.angular.x = v[3]
+    # v_msg.angular.y = v[4]
+    # v_msg.angular.z = v[5]
+    # vel_debug_pub.publish(v_msg)
 
-    vel_loc = pin.Motion(v)
-
-    frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
-    oMf = robot.pin_robot_wrapper.framePlacement(np.array(q), frame_id)
-    oMf_rot = pin.SE3(oMf.rotation, np.zeros(3))
-    vel_glob = oMf_rot.act(vel_loc)
-
-    pf.eeVelSample.derivative(vel_glob.vector)
+    # Set the vel to the pf
+    set_ee_vel(v)
 
 def control_from_joy_cb(msg):
     max_trans_vel = 0.2
     max_rot_vel = np.pi/2
-
     vel_loc = pin.Motion(np.array([max_trans_vel*msg.axes[6], max_trans_vel*msg.axes[7], max_trans_vel*msg.axes[1], 0, 0, max_rot_vel*msg.axes[3]]))
-
-
-    try:
-        _, q, _, _ = robot.get_meas_qvtau()
-    except:
-        rospy.logwarn("Joint out of bounds send 0 velocity.")
-        pf.eeVelSample.derivative(np.zeros(6))
-        return
-
-    frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
-    oMf = robot.pin_robot_wrapper.framePlacement(np.array(q), frame_id)
-    oMf_rot = pin.SE3(oMf.rotation, np.zeros(3))
-    vel_glob = oMf_rot.act(vel_loc)
-
-    pf.eeVelSample.derivative(vel_glob.vector)
+    set_ee_vel(vel_loc)
 
 if __name__=='__main__':
-    pub = rospy.Publisher("/left_ft_wrench_error", WrenchStamped, queue_size=0)
-    pubpub = rospy.Publisher("/vel_debug", Twist, queue_size=0)
-    rospy.Subscriber("/joy", Joy, control_from_joy_cb)
+    force_debug_pub = rospy.Publisher("/left_ft_wrench_error", WrenchStamped, queue_size=0)
+    vel_debug_pub = rospy.Publisher("/vel_debug", Twist, queue_size=0)
 
     # start_pose = [[-0.6, 0.0, 0.05], [np.pi, 0, np.pi]]
     # path = planner.make_gripper_approach(robot.left_gripper_name, start_pose, approach_distance = 0.01)
@@ -195,6 +191,7 @@ if __name__=='__main__':
     # robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_flex_finger_0")
 
     input("Press enter to execute TSID motion...")
+    rospy.Subscriber("/joy", Joy, control_from_joy_cb)
     rospy.Subscriber("/left_ft_wrench", WrenchStamped, control_from_fts_cb)
     pf.follow_velocity("left_gripper_grasp_frame", [commander_left_arm], 0.1, velocity_ctrl = True)
 

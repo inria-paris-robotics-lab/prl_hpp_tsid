@@ -250,7 +250,7 @@ class PathFollower:
 
         # Init end effector tasks
         eeIndex = self.robot.pin_robot_wrapper.model.getFrameId(targetFrame)
-        assert eeIndex < len(self.robot.pin_robot_wrapper.model.frames), "Frame " + str(targetFrame) + " not found in the robot model : task related to that frame will be ignored"
+        assert eeIndex < len(self.robot.pin_robot_wrapper.model.frames), "Frame " + str(targetFrame) + " not found in the robot model."
 
         #    Follow velocity
         eeVelTask_name = "ee-vel-task-" + targetFrame

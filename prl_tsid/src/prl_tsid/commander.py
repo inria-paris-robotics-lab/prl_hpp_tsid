@@ -6,6 +6,8 @@ import pinocchio as pin
 class PathFollower:
     TIMEOUT_STEP = 2
     COLLISION_STEP = 2
+    PRIO_COST = 1
+    PRIO_CONSTRAINT = 0
 
     def __init__(self, robot):
         ## Init the problem
@@ -24,16 +26,15 @@ class PathFollower:
         self.robot.create_visualizer()
         self.robot.display(q0)
 
-        ## Create the tasks
-        self.w_posture = 1
-
         # Joint torque bounds task
+        self.w_actuationBounds = 1.0
         self.actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", self.tsid_robot)
-        self.formulation.addActuationTask(self.actuationBoundsTask, 1, 0, 0.0)
+        self.formulation.addActuationTask(self.actuationBoundsTask, self.w_actuationBounds, self.PRIO_CONSTRAINT, 0.0)
 
         # Joint pos, vel, acc bounds task
+        self.w_posVelAccBounds = 1.0
         self.jointBoundsTask = tsid.TaskJointPosVelAccBounds("task-joint-bounds", self.tsid_robot, 0.1) # dt will be re-set before executing
-        self.formulation.addMotionTask(self.jointBoundsTask, 1, 0, 0.0)
+        self.formulation.addMotionTask(self.jointBoundsTask, self.w_posVelAccBounds, self.PRIO_CONSTRAINT, 0.0)
 
         ## Init the tasks
         self._set_position_limit()
@@ -66,13 +67,14 @@ class PathFollower:
         # Gains
         Kp_posture = 1.
         Kd_posture = 2.0 * np.sqrt(Kp_posture)
-        w_ee = 0.1 * self.w_posture
+        w_posture = 1
         Kp_ee = 1.
+        w_ee = 0.1
 
         # Posture task
         postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
         postureSample = tsid.TrajectorySample(self.tsid_robot.nq, self.tsid_robot.nv)
-        self.formulation.addMotionTask(postureTask, self.w_posture, 1, 0.0)
+        self.formulation.addMotionTask(postureTask, w_posture, self.PRIO_COST, 0.0)
         postureTask.setKp(Kp_posture * np.ones(self.tsid_robot.na))
         postureTask.setKd(Kd_posture * np.ones(self.tsid_robot.na))
 
@@ -98,7 +100,7 @@ class PathFollower:
             eeTasks.append(eeTask)
             eeSamples.append(tsid.TrajectorySample(12, 6))
 
-            self.formulation.addMotionTask(eeTask, w_ee, 1, 0.0)
+            self.formulation.addMotionTask(eeTask, w_ee, self.PRIO_COST, 0.0)
 
         self.eeTasks = eeTasks
 
@@ -242,9 +244,9 @@ class PathFollower:
 
     def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False):
         # Gains
-        w_ee = 1
         Kp_ee = 1.
         Kd_ee = 2 * np.sqrt(Kp_ee)
+        w_ee = 0.1
 
         # Init end effector tasks
         eeIndex = self.robot.pin_robot_wrapper.model.getFrameId(targetFrame)

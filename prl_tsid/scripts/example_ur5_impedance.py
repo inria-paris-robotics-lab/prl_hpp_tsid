@@ -76,8 +76,8 @@ def compute_supported_effort(model, data, frame_id):
 ###################################
 
 def control_from_fts_cb(msg):
-    max_speed = 0.2
-    max_rot = np.pi/2
+    max_trans_vel = 0.2
+    max_rot_vel = np.pi/2
 
     frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
 
@@ -122,16 +122,16 @@ def control_from_fts_cb(msg):
     # # ee_pos_vec = np.concatenate((baseMgripper.translation, baseMgripper.rotation.flatten('F')))
 
     # vz = 0.01 * ((-5.) - msg.wrench.force.z)
-    # v_z = np.clip(vz, -max_speed, max_speed)
+    # v_z = np.clip(vz, -max_trans_vel, max_trans_vel)
     # ee_vel_vec = np.array([0,0,v_z,0,0,0])
     # pf.eeSample.derivative(ee_vel_vec)
     # # pf.eeSample.value(ee_pos_vec)
 
 def control_from_joy_cb(msg):
-    max_speed = 0.2
-    max_rot = np.pi/2
+    max_trans_vel = 0.2
+    max_rot_vel = np.pi/2
 
-    vel_loc = pin.Motion(np.array([max_speed*msg.axes[6], max_speed*msg.axes[7], max_speed*msg.axes[1], 0, 0, max_rot*msg.axes[3]]))
+    vel_loc = pin.Motion(np.array([max_trans_vel*msg.axes[6], max_trans_vel*msg.axes[7], max_trans_vel*msg.axes[1], 0, 0, max_rot_vel*msg.axes[3]]))
 
 
     try:

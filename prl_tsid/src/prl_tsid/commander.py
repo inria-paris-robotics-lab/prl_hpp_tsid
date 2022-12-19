@@ -259,21 +259,13 @@ class PathFollower:
         eeVelTask.setKp(       np.zeros(self.tsid_robot.na))
         eeVelTask.setKd(Kd_ee * np.ones(self.tsid_robot.na))
         self.eeVelSample = tsid.TrajectorySample(12, 6)
-        self.formulation.addMotionTask(eeVelTask, w_ee, 1, 0.0)
+        self.formulation.addMotionTask(eeVelTask, w_ee, self.PRIO_COST, 0.0)
 
         # Resize solver
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
         # Update tasks parameters
         self.jointBoundsTask.setTimeStep(dt)
-        commanded_mask = [False] * self.tsid_robot.nv
-        for commander in commanders:
-            mask = commander.converter.v_pin_mask()
-            for i in range(len(commanded_mask)):
-                commanded_mask[i] |= mask[i]
-        rospy.logwarn(np.array(commanded_mask).astype(int))
-        self.jointBoundsTask.setMask(np.array(commanded_mask).astype(int))
-        self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
         # Prepare the loop
         rate = rospy.Rate(1. / dt)

@@ -25,9 +25,9 @@ planner.set_acceleration_limit(0.25)
 
 # Exectute the trajectories using TSID
 pf = PathFollower(robot)
-pf.set_velocity_limit(1)
-pf.set_acceleration_limit(1)
-pf.set_torque_limit(0.75)
+# pf.set_velocity_limit(1)
+# pf.set_acceleration_limit(1)
+# pf.set_torque_limit(1)
 
 import tf
 from geometry_msgs.msg import WrenchStamped

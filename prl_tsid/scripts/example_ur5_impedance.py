@@ -3,6 +3,8 @@
 # roslaunch prl_ur5_run real.launch velocity_control:=true ff_control:=true moveit:=false sensors:=true enable_right_camera:=false
 # roslaunch ros_cosypose singleview_loop.launch bringup_camera:=false dataset:=ycbv debug:=true camera_name:=left_camera/color detection_threshold:=0.85
 
+from copy import copy
+
 from prl_tsid.commander import PathFollower
 import numpy as np
 import pinocchio as pin
@@ -99,7 +101,7 @@ filt_avg = pin.Force(np.zeros(6))
 def control_from_fts_cb(msg):
     global FILT_WIN, filt_list, filt_i, filt_avg
     force_trans_fric = 4 # The first 4 N won't be counted
-    force_ros_fric = 0.2 # The first 0.2 Nm won't be counted
+    force_rot_fric = 0.4 # The first 0.2 Nm won't be counted
     max_trans_vel = 0.1
     max_rot_vel = 0.001 #np.pi/2
     max_trans_force = 10
@@ -133,12 +135,17 @@ def control_from_fts_cb(msg):
     filt_i = (filt_i + 1) % FILT_WIN
 
     # Add "friction" to the measured force
-    res_fric = np.zeros(6)
-    for i in range(6):
-        fric = force_trans_fric if i<3 else force_ros_fric
-        if(abs(filt_avg.vector[i]) < fric):
-            continue
-        res_fric[i] = filt_avg.vector[i] - np.sign(filt_avg.vector[i]) * fric
+    force_trans = copy(filt_avg.vector[:3])
+    force_rot = copy(filt_avg.vector[3:])
+    if(np.linalg.norm(force_trans) < force_trans_fric):
+        force_trans = np.zeros(3)
+    else:
+        force_trans -= force_trans * force_trans_fric / np.linalg.norm(force_trans)
+    if(np.linalg.norm(force_rot) < force_rot_fric):
+        force_rot = np.zeros(3)
+    else:
+        force_rot -= force_rot * force_rot_fric / np.linalg.norm(force_rot)
+    res_fric = np.concatenate([force_trans, force_rot])
 
     # # Publish the force for debug
     # answer.wrench.force.x = res_fric[0]

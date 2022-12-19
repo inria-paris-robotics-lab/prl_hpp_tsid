@@ -64,10 +64,10 @@ class PathFollower:
 
     def execute_path(self, path, commanders, dt, velocity_ctrl=False):
         # Gains
-        Kp_posture = 10.
+        Kp_posture = 1.
         Kd_posture = 2.0 * np.sqrt(Kp_posture)
         w_ee = 0.1 * self.w_posture
-        K_ee = 10.
+        Kp_ee = 1.
 
         # Posture task
         postureTask = tsid.TaskJointPosture("task-posture", self.tsid_robot)
@@ -89,8 +89,8 @@ class PathFollower:
 
             eeTask_name = "ee-task-" + targetFrame
             eeTask = tsid.TaskSE3Equality(eeTask_name , self.tsid_robot, targetFrame)
-            eeTask.setKp(K_ee* np.ones(self.tsid_robot.na))
-            eeTask.setKd(2.0 * np.sqrt(K_ee) * np.ones(self.tsid_robot.na))
+            eeTask.setKp(Kp_ee* np.ones(self.tsid_robot.na))
+            eeTask.setKd(2.0 * np.sqrt(Kp_ee) * np.ones(self.tsid_robot.na))
             eeTask.useLocalFrame(True) # Represent jacobian in local frame
 
             eeIndexes.append(eeIndex)
@@ -243,7 +243,7 @@ class PathFollower:
     def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False):
         # Gains
         w_ee = 1
-        Kp_ee = 10.
+        Kp_ee = 1.
         Kd_ee = 2 * np.sqrt(Kp_ee)
 
         # Init end effector tasks

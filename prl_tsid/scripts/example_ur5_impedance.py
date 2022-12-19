@@ -90,26 +90,24 @@ def control_from_fts_cb(msg):
     answer = WrenchStamped(header = msg.header)
 
     # # Already computed internally of the F/T sensor
-    # frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
-    #
-    # try:
-    #     t, q, v, tau = robot.get_meas_qvtau()
-    # except:
-    #     rospy.logwarn("Joint out of bounds send 0 velocity.")
-    #     answer = WrenchStamped(header = msg.header)
-    #     pub.publish(answer)
-    #     return
-    #
-    # q, v, tau = np.array(q), np.array(v), np.array(tau)
-    # robot.pin_robot_wrapper.forwardKinematics(q, v)
-    # pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
-    # pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q)
-    # effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
-    #
-    # wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
-    # diff_f = effort + wrist_f_tot
+    frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
+    try:
+        t, q, v, tau = robot.get_meas_qvtau()
+    except:
+        rospy.logwarn("Joint out of bounds send 0 velocity.")
+        answer = WrenchStamped(header = msg.header)
+        pub.publish(answer)
+        return
+    q, v, tau = np.array(q), np.array(v), np.array(tau)
+    robot.pin_robot_wrapper.forwardKinematics(q, v)
+    pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
+    pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q)
+    effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
+    wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
 
-    wrist_f = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
+    wrist_f = effort + wrist_f_tot
+    # wrist_f = wrist_f_tot
+
     filt_avg -= filt_list[filt_i]
     filt_list[filt_i] = wrist_f / FILT_WIN
     filt_avg += filt_list[filt_i]

@@ -75,57 +75,59 @@ def compute_supported_effort(model, data, frame_id):
     return iMf.actInv(effort)
 ###################################
 
+
+FILT_WIN = int(1 / 0.01) # filter window =  1s @ 100Hz
+filt_list = [pin.Force(np.zeros(6)) for _ in range(FILT_WIN)]
+filt_i = 0
+filt_avg = pin.Force(np.zeros(6))
 def control_from_fts_cb(msg):
+    global FILT_WIN, filt_list, filt_i, filt_avg
     max_trans_vel = 0.2
     max_rot_vel = np.pi/2
 
-    frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
+    # frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
 
-    try:
-        t, q, v, tau = robot.get_meas_qvtau()
-    except:
-        rospy.logwarn("Joint out of bounds send 0 velocity.")
-        answer = WrenchStamped(header = msg.header)
-        pub.publish(answer)
-        return
-
-    q, v, tau = np.array(q), np.array(v), np.array(tau)
-    robot.pin_robot_wrapper.forwardKinematics(q, v)
-    pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
-    pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q)
-    effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
-
-    wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
-    diff_f = effort + wrist_f_tot
+    # try:
+    #     t, q, v, tau = robot.get_meas_qvtau()
+    # except:
+    #     rospy.logwarn("Joint out of bounds send 0 velocity.")
+    #     answer = WrenchStamped(header = msg.header)
+    #     pub.publish(answer)
+    #     return
 
     answer = WrenchStamped(header = msg.header)
 
-    answer.wrench.force.x = diff_f.linear[0]
-    answer.wrench.force.y = diff_f.linear[1]
-    answer.wrench.force.z = diff_f.linear[2]
+    # # Already computed internally of the F/T sensor
+    # q, v, tau = np.array(q), np.array(v), np.array(tau)
+    # robot.pin_robot_wrapper.forwardKinematics(q, v)
+    # pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
+    # pin.crba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q)
+    # effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
+    #
+    # wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
+    # diff_f = effort + wrist_f_tot
+    #
+    # answer.wrench.force.x = diff_f.linear[0]
+    # answer.wrench.force.y = diff_f.linear[1]
+    # answer.wrench.force.z = diff_f.linear[2]
+    # answer.wrench.torque.x = diff_f.angular[0]
+    # answer.wrench.torque.y = diff_f.angular[1]
+    # answer.wrench.torque.z = diff_f.angular[2]
 
-    answer.wrench.torque.x = diff_f.angular[0]
-    answer.wrench.torque.y = diff_f.angular[1]
-    answer.wrench.torque.z = diff_f.angular[2]
+    wrist_f = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
+    filt_avg -= filt_list[filt_i]
+    filt_list[filt_i] = wrist_f / FILT_WIN
+    filt_avg += filt_list[filt_i]
+    filt_i = (filt_i + 1) % FILT_WIN
+
+    answer.wrench.force.x = filt_avg.linear[0]
+    answer.wrench.force.y = filt_avg.linear[1]
+    answer.wrench.force.z = filt_avg.linear[2]
+    answer.wrench.torque.x = filt_avg.angular[0]
+    answer.wrench.torque.y = filt_avg.angular[1]
+    answer.wrench.torque.z = filt_avg.angular[2]
 
     pub.publish(answer)
-
-    # print("computed inertia", inertia)
-    # print("computed effort", effort)
-    # print("measured effort", wrist_f_tot)
-
-    # # q, v, tau = robot.get_meas_qvtau()
-    # # wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
-    # # wrist_f_grav = 
-
-    # # ee_vel_vec = (baseMgripper * pin.Motion(ee_vel_vec_local)).vector
-    # # ee_pos_vec = np.concatenate((baseMgripper.translation, baseMgripper.rotation.flatten('F')))
-
-    # vz = 0.01 * ((-5.) - msg.wrench.force.z)
-    # v_z = np.clip(vz, -max_trans_vel, max_trans_vel)
-    # ee_vel_vec = np.array([0,0,v_z,0,0,0])
-    # pf.eeSample.derivative(ee_vel_vec)
-    # # pf.eeSample.value(ee_pos_vec)
 
 def control_from_joy_cb(msg):
     max_trans_vel = 0.2

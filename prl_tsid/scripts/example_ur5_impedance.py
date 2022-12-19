@@ -82,11 +82,16 @@ filt_i = 0
 filt_avg = pin.Force(np.zeros(6))
 def control_from_fts_cb(msg):
     global FILT_WIN, filt_list, filt_i, filt_avg
+    force_trans_fric = 3 # The first 3 N won't be counted
+    force_ros_fric = 0.2 # The first 0.2 Nm won't be counted
     max_trans_vel = 0.2
     max_rot_vel = np.pi/2
 
-    # frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
+    answer = WrenchStamped(header = msg.header)
 
+    # # Already computed internally of the F/T sensor
+    # frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
+    #
     # try:
     #     t, q, v, tau = robot.get_meas_qvtau()
     # except:
@@ -94,10 +99,7 @@ def control_from_fts_cb(msg):
     #     answer = WrenchStamped(header = msg.header)
     #     pub.publish(answer)
     #     return
-
-    answer = WrenchStamped(header = msg.header)
-
-    # # Already computed internally of the F/T sensor
+    #
     # q, v, tau = np.array(q), np.array(v), np.array(tau)
     # robot.pin_robot_wrapper.forwardKinematics(q, v)
     # pin.aba(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, q, v, tau)
@@ -106,13 +108,6 @@ def control_from_fts_cb(msg):
     #
     # wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
     # diff_f = effort + wrist_f_tot
-    #
-    # answer.wrench.force.x = diff_f.linear[0]
-    # answer.wrench.force.y = diff_f.linear[1]
-    # answer.wrench.force.z = diff_f.linear[2]
-    # answer.wrench.torque.x = diff_f.angular[0]
-    # answer.wrench.torque.y = diff_f.angular[1]
-    # answer.wrench.torque.z = diff_f.angular[2]
 
     wrist_f = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
     filt_avg -= filt_list[filt_i]
@@ -120,14 +115,24 @@ def control_from_fts_cb(msg):
     filt_avg += filt_list[filt_i]
     filt_i = (filt_i + 1) % FILT_WIN
 
-    answer.wrench.force.x = filt_avg.linear[0]
-    answer.wrench.force.y = filt_avg.linear[1]
-    answer.wrench.force.z = filt_avg.linear[2]
-    answer.wrench.torque.x = filt_avg.angular[0]
-    answer.wrench.torque.y = filt_avg.angular[1]
-    answer.wrench.torque.z = filt_avg.angular[2]
+    # Add "friction" to the measured force
+    res_fric = np.zeros(6)
+    for i in range(6):
+        fric = force_trans_fric if i<3 else force_ros_fric
+        if(abs(filt_avg.vector[i]) < fric):
+            continue
+        res_fric[i] = filt_avg.vector[i] - np.sign(filt_avg.vector[i]) * fric
+
+    answer.wrench.force.x = res_fric[0]
+    answer.wrench.force.y = res_fric[1]
+    answer.wrench.force.z = res_fric[2]
+    answer.wrench.torque.x = res_fric[3]
+    answer.wrench.torque.y = res_fric[4]
+    answer.wrench.torque.z = res_fric[5]
 
     pub.publish(answer)
+
+    # v_z = np.clip(vz, -max_trans_vel, max_trans_vel)
 
 def control_from_joy_cb(msg):
     max_trans_vel = 0.2
@@ -161,12 +166,12 @@ if __name__=='__main__':
     # input("Press enter to execute initial motion...")
     # pf.execute_path(path, [commander_left_arm], 0.1, velocity_ctrl = True)
 
-    robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_0")
-    robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_1")
-    robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_flex_finger_0")
-    robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_finger_tip_0")
-    robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_finger_tip_1")
-    robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_flex_finger_0")
+    # robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_0")
+    # robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_1")
+    # robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_flex_finger_0")
+    # robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_finger_tip_0")
+    # robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_finger_tip_1")
+    # robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_flex_finger_0")
 
     input("Press enter to execute TSID motion...")
     pf.follow_velocity("left_gripper_grasp_frame", [commander_left_arm], 0.1, velocity_ctrl = True)

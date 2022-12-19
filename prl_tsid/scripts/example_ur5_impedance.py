@@ -30,7 +30,7 @@ pf = PathFollower(robot)
 # pf.set_torque_limit(1)
 
 import tf
-from geometry_msgs.msg import WrenchStamped
+from geometry_msgs.msg import WrenchStamped, Twist
 from sensor_msgs.msg import Joy
 
 tf_listener = tf.TransformListener()
@@ -82,10 +82,12 @@ filt_i = 0
 filt_avg = pin.Force(np.zeros(6))
 def control_from_fts_cb(msg):
     global FILT_WIN, filt_list, filt_i, filt_avg
-    force_trans_fric = 3 # The first 3 N won't be counted
+    force_trans_fric = 4 # The first 4 N won't be counted
     force_ros_fric = 0.2 # The first 0.2 Nm won't be counted
-    max_trans_vel = 0.2
-    max_rot_vel = np.pi/2
+    max_trans_vel = 0.1
+    max_rot_vel = 0.001 #np.pi/2
+    max_trans_force = 10
+    max_rot_force = 1
 
     answer = WrenchStamped(header = msg.header)
 
@@ -95,6 +97,7 @@ def control_from_fts_cb(msg):
         t, q, v, tau = robot.get_meas_qvtau()
     except:
         rospy.logwarn("Joint out of bounds send 0 velocity.")
+        pf.eeVelSample.derivative(np.zeros(6))
         answer = WrenchStamped(header = msg.header)
         pub.publish(answer)
         return
@@ -105,8 +108,8 @@ def control_from_fts_cb(msg):
     effort = compute_supported_effort(robot.pin_robot_wrapper.model, robot.pin_robot_wrapper.data, frame_id)
     wrist_f_tot = pin.Force(np.array([msg.wrench.force.x, msg.wrench.force.y, msg.wrench.force.z, msg.wrench.torque.x, msg.wrench.torque.y, msg.wrench.torque.z]))
 
-    wrist_f = effort + wrist_f_tot
-    # wrist_f = wrist_f_tot
+    # wrist_f = effort + wrist_f_tot
+    wrist_f = wrist_f_tot
 
     filt_avg -= filt_list[filt_i]
     filt_list[filt_i] = wrist_f / FILT_WIN
@@ -130,7 +133,27 @@ def control_from_fts_cb(msg):
 
     pub.publish(answer)
 
-    # v_z = np.clip(vz, -max_trans_vel, max_trans_vel)
+    v = np.concatenate( [res_fric[:3] * max_trans_vel / max_trans_force, res_fric[3:] * max_rot_vel / max_rot_force] )
+    v_limit = np.array([max_trans_vel]*3 + [max_rot_vel]*3)
+    v = v.clip(-v_limit, v_limit)
+
+    v_msg = Twist()
+    v_msg.linear.x = v[0]
+    v_msg.linear.y = v[1]
+    v_msg.linear.z = v[2]
+    v_msg.angular.x = v[3]
+    v_msg.angular.y = v[4]
+    v_msg.angular.z = v[5]
+    pubpub.publish(v_msg)
+
+    vel_loc = pin.Motion(v)
+
+    frame_id = robot.pin_robot_wrapper.model.getFrameId("left_measurment_joint")
+    oMf = robot.pin_robot_wrapper.framePlacement(np.array(q), frame_id)
+    oMf_rot = pin.SE3(oMf.rotation, np.zeros(3))
+    vel_glob = oMf_rot.act(vel_loc)
+
+    pf.eeVelSample.derivative(vel_glob.vector)
 
 def control_from_joy_cb(msg):
     max_trans_vel = 0.2
@@ -155,7 +178,7 @@ def control_from_joy_cb(msg):
 
 if __name__=='__main__':
     pub = rospy.Publisher("/left_ft_wrench_error", WrenchStamped, queue_size=0)
-    rospy.Subscriber("/left_ft_wrench", WrenchStamped, control_from_fts_cb)
+    pubpub = rospy.Publisher("/vel_debug", Twist, queue_size=0)
     rospy.Subscriber("/joy", Joy, control_from_joy_cb)
 
     # start_pose = [[-0.6, 0.0, 0.05], [np.pi, 0, np.pi]]
@@ -172,6 +195,7 @@ if __name__=='__main__':
     # robot.remove_collision_pair("table_link_0", "left_gripper_finger_2_flex_finger_0")
 
     input("Press enter to execute TSID motion...")
+    rospy.Subscriber("/left_ft_wrench", WrenchStamped, control_from_fts_cb)
     pf.follow_velocity("left_gripper_grasp_frame", [commander_left_arm], 0.1, velocity_ctrl = True)
 
     input("Press enter to quit...")

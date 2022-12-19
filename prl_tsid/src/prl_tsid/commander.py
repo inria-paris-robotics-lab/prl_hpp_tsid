@@ -34,6 +34,7 @@ class PathFollower:
         # Joint pos, vel, acc bounds task
         self.w_posVelAccBounds = 1.0
         self.jointBoundsTask = tsid.TaskJointPosVelAccBounds("task-joint-bounds", self.tsid_robot, 0.1) # dt will be re-set before executing
+        self.jointBoundsTask.setVerbose(False)
         self.formulation.addMotionTask(self.jointBoundsTask, self.w_posVelAccBounds, self.PRIO_CONSTRAINT, 0.0)
 
         ## Init the tasks

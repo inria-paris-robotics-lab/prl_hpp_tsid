@@ -243,9 +243,12 @@ class PathFollower:
         self.formulation.removeTask("task-posture", 0.0)
         self.solver.resize(self.formulation.nVar, self.formulation.nEq, self.formulation.nIn)
 
+
     def follow_velocity(self, targetFrame, commanders, dt, velocity_ctrl=False):
+        fq_debug_pub = rospy.Publisher("/tsid_debug", Empty, queue_size=5)
+
         # Gains
-        Kp_ee = 1.
+        Kp_ee = 0.1
         Kd_ee = 2 * np.sqrt(Kp_ee)
         w_ee = 0.1
 

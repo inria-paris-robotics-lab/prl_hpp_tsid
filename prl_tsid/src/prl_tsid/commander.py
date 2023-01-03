@@ -211,7 +211,7 @@ class PathFollower:
             # Compute collisions
             q_col, v_col, dv_col = q_next, v_next, dv_next
             col_res, col_pairs = False, []
-            for i in range(1, self.COLLISION_STEP):
+            for i in range(self.COLLISION_STEP):
                 col_res, col_pairs = self.robot.compute_collisions(q_col, True)
                 if col_res:
                     break
@@ -340,7 +340,7 @@ class PathFollower:
             # Compute collisions
             q_col, v_col, dv_col = q_next, v_next, dv_next
             col_res, col_pairs = False, []
-            for i in range(1, self.COLLISION_STEP):
+            for i in range(self.COLLISION_STEP):
                 col_res, col_pairs = self.robot.compute_collisions(q_col, True)
                 if col_res:
                     break

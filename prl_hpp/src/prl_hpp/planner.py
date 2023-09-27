@@ -10,9 +10,12 @@ from prl_hpp.tools.instate_planner import InStatePlanner
 
 from prl_hpp.tools.hpp_robots import HppRobot, TargetRobotStrings, SupportRobotStrings
 
-# import os
-# loadServerPlugin ("corbaserver", os.environ.get('CONDA_PREFIX')+"/lib/hppPlugins/manipulation-corba.so")
-loadServerPlugin ("corbaserver", "manipulation-corba.so")
+try:
+    loadServerPlugin ("corbaserver", "manipulation-corba.so")
+except:
+    import os
+    loadServerPlugin ("corbaserver", os.environ.get('CONDA_PREFIX')+"/lib/hppPlugins/manipulation-corba.so")
+
 Client ().problem.resetProblem ()
 
 class Path:

@@ -41,7 +41,7 @@ class Planner:
 
         # Problem
         self.ps = ProblemSolver(self.hpp_robot)
-        self.graph = self.hpp_robot.client.manipulation.graph
+        self.graph = wd(self.hpp_robot.client.manipulation.graph)
 
         # Viewer
         self.vf = ViewerFactory(self.ps)
@@ -401,7 +401,6 @@ class Planner:
         except HppError:
             pass
         self.ps.clearRoadmap()
-        self.hpp_robot.__init__(self.robot.pin_robot_wrapper.model.name, "robot", self.robot.get_urdf_explicit(), self.robot.get_srdf_explicit())
         self.ps.resetGoalConfigs()
 
     def _timeParametrizePath(self, pathId):
@@ -481,7 +480,7 @@ class Planner:
         if(validate):
             cgraph = cproblem.getConstraintGraph()
             cgraph.initialize()
-            graphValidation = self.ps.client.manipulation.problem.createGraphValidation()
+            graphValidation = wd(self.ps.client.manipulation.problem.createGraphValidation())
             assert graphValidation.validate(cgraph), graphValidation.str()
 
         return cg

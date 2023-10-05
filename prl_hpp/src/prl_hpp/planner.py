@@ -297,8 +297,8 @@ class Planner:
         gripperLink = self.robot.get_gripper_link(gripperName)
 
         # The configuration space is bigger because of the configuration of pick and place objects
-        q_start = self._merge_q(q_start, target = pose_pick, pick = pose_pick, place = pose_place)
-        q_end = self._merge_q(q_end, target = pose_place, pick = pose_pick, place = pose_place)
+        q_start = self._merge_q(q_start, q_target = pose_pick, q_pick = pose_pick, q_place = pose_place)
+        q_end = self._merge_q(q_end, q_target = pose_place, q_pick = pose_pick, q_place = pose_place)
 
         # Rules
         rules = [

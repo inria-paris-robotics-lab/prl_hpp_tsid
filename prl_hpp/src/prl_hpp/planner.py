@@ -48,6 +48,12 @@ class Planner:
         self.v = self.vf.createViewer()
         self.pp = PathPlayer(self.v)
 
+        # Add the objects
+        self._create_target("target", 0.1) #TODO: be able to change this arbitrary value
+        self._create_support("support_pick", 0.1)
+        self._create_support("support_place", 0.1)
+
+        # Planning parameters
         self.ps.setErrorThreshold (1e-3)
         self.ps.setMaxIterProjection (40)
         self.ps.selectPathValidation("Graph-Progressive", 0.01)
@@ -57,7 +63,14 @@ class Planner:
         self.velocity_scale = 1.0
         self.acceleration_scale = 1.0
 
+        # User defined locked joint constraint (re-used for every graph)
         self.lockJointConstraints = []
+
+        # Create some constraints to lock target/support_pick/support_place to use when they are not needed
+        self.ps.createLockedJoint("lock_target", "target/root_joint", [0,0,0, 0,0,0,1])
+        self.ps.createLockedJoint("lock_support_pick", "support_pick/root_joint", [0,0,0, 0,0,0,1])
+        self.ps.createLockedJoint("lock_support_place", "support_place/root_joint", [0,0,0, 0,0,0,1])
+        self.ps.addLockedJointConstraints("lock_unused_planning_objects", ["lock_target", "lock_support_pick", "lock_support_place"])
 
     def set_planning_timeout(self, timeout):
         """
@@ -147,14 +160,15 @@ class Planner:
         gripperFullname = "robot/" + gripperName
         gripperLink = self.robot.get_gripper_link(gripperName)
 
-        # Create the approach object target
-        self._create_target("target", approach_distance)
-
         # The configuration space is now bigger because of the configuration of the target
-        q_start = q_start + pose[0] + pose[1]
+        q_start = self._merge_q(q_start, q_target = (pose[0]+pose[1]) )
 
         # Create the ConstraintGraph
         cg = self._create_simple_cg([gripperFullname], ['target'], [['target/handle']], validate, replace_target_constraints=True)
+
+        # Lock the support pick and support place as it is not used (re-using previously created constraints)
+        cg.addConstraints (graph=True, constraints= Constraints(numConstraints = ["lock_support_pick", "lock_support_place"]))
+        cg.initialize() # Re-initialize the graph
 
         # Project the initial configuration in the initial node
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
@@ -199,7 +213,7 @@ class Planner:
         q_end = path.end()
         q_end_grasp = None
         for q_pre, q_grasp in q_goals:
-            if(compare_configurations(self.robot.pin_robot_wrapper.model, q_pre[:-7], q_end[:-7])):
+            if(compare_configurations(self.robot.pin_robot_wrapper.model, self._split_q(q_pre, 'robot'), self._split_q(q_end, 'robot'))):
                 q_end_grasp = q_grasp
                 break
         assert q_end_grasp != None, "Error while concatenating the last part of the path."
@@ -282,20 +296,9 @@ class Planner:
         gripperFullname = "robot/" + gripperName
         gripperLink = self.robot.get_gripper_link(gripperName)
 
-        # Load the environment
-        self._create_support("support_pick", approach_distance)
-        self._create_support("support_place", approach_distance)
-
-        # The configuration space is now bigger because of the configuration of pick and place objects
-        q_start += pose_pick + pose_place
-        q_end += pose_pick + pose_place
-
-        # Create the approach object target
-        self._create_target("target", approach_distance, double_handle = True)
-
-        # The configuration space is now bigger because of the configuration of the target
-        q_start += pose_pick
-        q_end += pose_place
+        # The configuration space is bigger because of the configuration of pick and place objects
+        q_start = self._merge_q(q_start, target = pose_pick, pick = pose_pick, place = pose_place)
+        q_end = self._merge_q(q_end, target = pose_place, pick = pose_pick, place = pose_place)
 
         # Rules
         rules = [
@@ -342,7 +345,7 @@ class Planner:
         pick_index = None
         place_index = None
         for i, q in enumerate(wps):
-            target_pose = q[-7:]
+            target_pose = self._split_q(q, 'target')
             if(compare_poses(target_pose, pose_pick)):
                 pick_index = i
             if(not compare_poses(target_pose, pose_place)): # As soon as the target reached the goal position, the place is reached
@@ -368,6 +371,12 @@ class Planner:
                 Path(param_place_pathId, param_place_path, self.robot.get_joint_names(), [gripperLink]), \
                 Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperLink])
 
+    def _merge_q(self, q_robot, q_target = [0,0,0, 0,0,0,1], q_pick = [0,0,0, 0,0,0,1], q_place = [0,0,0, 0,0,0,1]):
+        return (q_robot + q_target + q_pick + q_place)
+
+    def _split_q(self, q, part=''):
+        split = {'robot': q[:-3*7], 'target': q[-3*7:-2*7], 'pick': q[-2*7:-7], 'place': q[-7:]}
+        return split if part=='' else split[part]
 
     def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4, double_handle = False):
         target = TargetRobotStrings(clearance, double_handle = double_handle)
@@ -430,7 +439,7 @@ class Planner:
         nq = model.nq
         filtered_waypoints = []
         for i in range(len(waypoints)-1):
-            if( not compare_configurations(model, waypoints[i][:nq], waypoints[i+1][:nq]) ):
+            if( not compare_configurations(model, self._split_q(waypoints[i], 'robot'), self._split_q(waypoints[i+1], 'robot')) ):
                 filtered_waypoints.append(waypoints[i])
         filtered_waypoints.append(waypoints[-1])
 

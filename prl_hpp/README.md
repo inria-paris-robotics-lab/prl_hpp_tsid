@@ -20,7 +20,7 @@ Dependencies:
  * prl_pinocchio : [link](../prl_pinocchio/README.md)
 
 (optionnal)
- * prl_ur5_robot : https://github.com/inria-paris-robotic-lab/prl_ur5_robot
+ * prl_ur5_robot : https://github.com/inria-paris-robotics-lab/prl_ur5_robot
 
 # Launch
 ```

@@ -18,6 +18,6 @@
   <exec_depend>actionlib</exec_depend>
   <exec_depend>rospkg</exec_depend>
 
-  <url type="repository">https://github.com/inria-paris-robotic-lab/prl_hpp_tsid</url>
-  <url type="bugtracker">https://github.com/inria-paris-robotic-lab/prl_hpp_tsid/issues</url>
+  <url type="repository">https://github.com/inria-paris-robotics-lab/prl_hpp_tsid</url>
+  <url type="bugtracker">https://github.com/inria-paris-robotics-lab/prl_hpp_tsid/issues</url>
 </package>

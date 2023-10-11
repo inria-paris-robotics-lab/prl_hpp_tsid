@@ -66,12 +66,6 @@ class Planner:
         # User defined locked joint constraint (re-used for every graph)
         self.lockJointConstraints = []
 
-        # Create some constraints to lock target/support_pick/support_place to use when they are not needed
-        self.ps.createLockedJoint("lock_target", "target/root_joint", [0,0,0, 0,0,0,1])
-        self.ps.createLockedJoint("lock_support_pick", "support_pick/root_joint", [0,0,0, 0,0,0,1])
-        self.ps.createLockedJoint("lock_support_place", "support_place/root_joint", [0,0,0, 0,0,0,1])
-        self.ps.addLockedJointConstraints("lock_unused_planning_objects", ["lock_target", "lock_support_pick", "lock_support_place"])
-
     def set_planning_timeout(self, timeout):
         """
         Set the maximum duration the planner has to find a solution
@@ -165,10 +159,6 @@ class Planner:
 
         # Create the ConstraintGraph
         cg = self._create_simple_cg([gripperFullname], ['target'], [['target/handle']], validate, replace_target_constraints=True)
-
-        # Lock the support pick and support place as it is not used (re-using previously created constraints)
-        cg.addConstraints (graph=True, constraints= Constraints(numConstraints = ["lock_support_pick", "lock_support_place"]))
-        cg.initialize() # Re-initialize the graph
 
         # Project the initial configuration in the initial node
         res_init, q_init, _ = cg.applyNodeConstraints("free", q_start)
@@ -297,8 +287,8 @@ class Planner:
         gripperLink = self.robot.get_gripper_link(gripperName)
 
         # The configuration space is bigger because of the configuration of pick and place objects
-        q_start = self._merge_q(q_start, q_target = pose_pick, q_pick = pose_pick, q_place = pose_place)
-        q_end = self._merge_q(q_end, q_target = pose_place, q_pick = pose_pick, q_place = pose_place)
+        q_start = self._merge_q(q_start, q_target = pose_pick)
+        q_end = self._merge_q(q_end, q_target = pose_place)
 
         # Rules
         rules = [
@@ -310,6 +300,10 @@ class Planner:
             Rule(["support_pick/gripper"],  ["target/handle_bottom"], True),
             Rule(["support_place/gripper"], ["target/handle_bottom"], True),
         ]
+
+        # Place supports at pick and place locations
+        self.hpp_robot.setJointPosition('support_pick/root_joint', pose_pick)
+        self.hpp_robot.setJointPosition('support_place/root_joint', pose_place)
 
         # Create the ConstraintGraph
         cg = self._create_simple_cg([gripperFullname, "support_pick/gripper", "support_place/gripper"], ['target', "support_pick", "support_place"], [['target/handle', 'target/handle_bottom'], [], []], validate, rules = rules)
@@ -371,11 +365,11 @@ class Planner:
                 Path(param_place_pathId, param_place_path, self.robot.get_joint_names(), [gripperLink]), \
                 Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperLink])
 
-    def _merge_q(self, q_robot, q_target = [0,0,0, 0,0,0,1], q_pick = [0,0,0, 0,0,0,1], q_place = [0,0,0, 0,0,0,1]):
-        return (q_robot + q_target + q_pick + q_place)
+    def _merge_q(self, q_robot, q_target = [0,0,0, 0,0,0,1]):
+        return (q_robot + q_target)
 
     def _split_q(self, q, part=''):
-        split = {'robot': q[:-3*7], 'target': q[-3*7:-2*7], 'pick': q[-2*7:-7], 'place': q[-7:]}
+        split = {'robot': q[:-7], 'target': q[-7:]}
         return split if part=='' else split[part]
 
     def _create_target(self, targetName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4, double_handle = False):
@@ -391,14 +385,11 @@ class Planner:
         self.v = self.vf.createViewer()
         self.pp = PathPlayer(self.v)
 
-    def _create_support(self, supportName, clearance, bounds = [-2, 2]*3 + [-1, 1]*4):
+    def _create_support(self, supportName, clearance):
         support = SupportRobotStrings(clearance)
 
         # Create the support object
-        self.vf.loadRobotModelFromString(supportName, 'freeflyer', support.urdf, support.srdf)
-
-        # Bound the object pose around the desired pose
-        self.hpp_robot.setJointBounds (supportName + '/root_joint', bounds)
+        self.vf.loadRobotModelFromString(supportName, 'anchor', support.urdf, support.srdf)
 
         # Re-create the viewer with the target
         self.v = self.vf.createViewer()

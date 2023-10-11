@@ -315,11 +315,19 @@ class Planner:
 
         self.v(q_init)
 
-        # Add goal config
-        self.ps.resetGoalConfigs()
-        res_goal, q_goal, _ = cg.applyNodeConstraints("support_place/gripper grasps target/handle_bottom", q_end)
-        assert res_goal, "End configuration is not valid"
-        self.ps.addGoalConfig(q_goal)
+        # Generate pair goal configuration (pre-graps, grasp)
+        q_goals = []
+        for _ in range(100):
+            q = self.hpp_robot.shootRandomConfig()
+            res_place, q_place, error_place = cg.applyNodeConstraints(gripperFullname + ' grasps target/handle : support_place/gripper grasps target/handle_bottom', q)
+            res_clear, q_clear, error_clear = cg.generateTargetConfig(gripperFullname +' < target/handle | 0-0:2-1_21', q_place, q_place)
+            if(res_place and res_clear):
+                res_path, pathId, error_path = self.ps.directPath(q_place, q_clear, True)
+                if res_path:
+                    q_goals.append([q_place, q_clear])
+                    self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
+                    self.ps.addGoalConfig(q_place)
+        assert len(q_goals) > 0, "No goal configuration found"
 
         # Solve the problem
         success = self._safe_solve()
@@ -337,18 +345,27 @@ class Planner:
         # Split the path
         wps = self.ps.getWaypoints(pathId)[0]
         pick_index = None
-        place_index = None
         for i, q in enumerate(wps):
             target_pose = self._split_q(q, 'target')
-            if(compare_poses(target_pose, pose_pick)):
+            if(not compare_poses(target_pose, pose_pick)):
                 pick_index = i
-            if(not compare_poses(target_pose, pose_place)): # As soon as the target reached the goal position, the place is reached
-                place_index = i+1
+                break
 
         # Create sub path
-        pick_pathId = self._create_path(wps[:pick_index+1])
-        place_pathId = self._create_path(wps[pick_index:place_index+1])
-        home_pathId = self._create_path(wps[place_index:])
+        pick_pathId = self._create_path(wps[:pick_index])
+        place_pathId = self._create_path(wps[pick_index-1:])
+
+        # Find which pre-grasp configuration is at the end of the path
+        q_end = wps[-1]
+        q_end_clear = None
+        for q_place, q_clear in q_goals:
+            if(compare_configurations(self.robot.pin_robot_wrapper.model, self._split_q(q_place, 'robot'), self._split_q(q_end, 'robot'))):
+                q_end_clear = q_clear
+                break
+        assert q_end_clear != None, "Error while concatenating the last part of the path."
+
+        # Create the homing path
+        home_pathId = self._create_path([q_end, q_end_clear])
 
         # Time parametrization of the paths
         param_pick_pathId = self._timeParametrizePath(pick_pathId)

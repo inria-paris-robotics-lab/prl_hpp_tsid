@@ -20,8 +20,8 @@ pose_1 = [[-0.20, 0.00, 0.4], [pi/2, 0, pi/2]]
 pose_2 = [[-0.40, 0.20, 0.4], [pi/2, 0, pi]]
 
 path = planner.make_gripper_approach(robot.left_gripper_name, pose_1, approach_distance = 0.2)
-# input("Solution found. Press enter to display path")
-# planner.pp(path.id)
+input("Solution found. Press enter to display path")
+planner.pp(path.id)
 input("Solution found. Press enter to execute path")
 commander_left_arm.execute_path(path)
 

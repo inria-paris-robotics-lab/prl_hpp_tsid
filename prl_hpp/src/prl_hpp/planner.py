@@ -383,6 +383,23 @@ class Planner:
                 Path(param_place_pathId, param_place_path, self.robot.get_joint_names(), [gripperLink]), \
                 Path(param_home_pathId, param_home_path, self.robot.get_joint_names(), [gripperLink])
 
+    def display(self, q_robot, pose_target=None, pose_pick=None, pose_place=None):
+        # If no target pose is specified, retreive the one currently displayed
+        if(pose_target is None):
+            if(hasattr(self.v, 'robotConfig')):
+                pose_target = self._split_q(self.v.robotConfig, 'target')
+            else: # If no configuration has ever been set before
+                pose_target = [0,0,0, 0,0,0,1]
+
+        # Position pick and place markers if necessary
+        if(pose_pick is not None):
+            self.hpp_robot.setJointPosition('support_pick/root_joint', pose_pick)
+        if(pose_place is not None):
+            self.hpp_robot.setJointPosition('support_place/root_joint', pose_place)
+
+        # Display robot and target
+        self.v(self._merge_q(q_robot, pose_target))
+
     def _merge_q(self, q_robot, q_target = [0,0,0, 0,0,0,1]):
         return (q_robot + q_target)
 

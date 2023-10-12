@@ -178,7 +178,7 @@ class Planner:
                 collide, _ = self.robot.compute_collisions(self._split_q(q_grasp, 'robot'), stop_at_first_collision=True) # if the path is of length 0, the collision wouldn't be checked
                 if not collide and res_path:
                     q_goals.append([q_pre, q_grasp])
-                    self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
+                self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
 
         assert len(q_goals) > 0, "No goal configuration found"
 
@@ -324,13 +324,12 @@ class Planner:
             res_clear, q_clear, error_clear = cg.generateTargetConfig(gripperFullname +' < target/handle | 0-0:2-1_21', q_place, q_place)
             if(res_place and res_clear):
                 res_path, pathId, error_path = self.ps.directPath(q_place, q_clear, True) # Check that a collision free direct path is feasible
-                collide, _ = self.robot.compute_collisions(np.array(self._split_q(q_clear, 'robot')), stop_at_first_collision=True) # if the path is of length 0, the collision wouldn't be checked
+                collide, _ = self.robot.compute_collisions(self._split_q(q_clear, 'robot'), stop_at_first_collision=True) # if the path is of length 0, the collision wouldn't be checked
                 if res_path:
                     q_goals.append([q_place, q_clear])
-                    self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
                     self.ps.addGoalConfig(q_place)
+                self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
         assert len(q_goals) > 0, "No goal configuration found"
-
         # Solve the problem
         success = self._safe_solve()
         if not success:

@@ -63,6 +63,7 @@ class Robot:
         self.pin_robot_wrapper.collision_data = pinocchio.GeometryData(self.pin_robot_wrapper.collision_model)
 
     def compute_collisions(self, q, stop_at_first_collision = False):
+        q = numpy.array(q)
         pinocchio.computeCollisions(self.pin_robot_wrapper.model, self.pin_robot_wrapper.data, self.pin_robot_wrapper.collision_model, self.pin_robot_wrapper.collision_data, q, stop_at_first_collision)
 
         is_collided = False

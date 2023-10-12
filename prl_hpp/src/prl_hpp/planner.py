@@ -174,8 +174,9 @@ class Planner:
             res_pre, q_pre, error_pre = cg.generateTargetConfig(gripperFullname + ' > target/handle | f_01', q_init, q)
             res_grasp, q_grasp, error_grasp = cg.generateTargetConfig(gripperFullname + ' > target/handle | f_12', q_pre, q_pre)
             if(res_pre and res_grasp):
-                res_path, pathId, error_path = self.ps.directPath(q_pre, q_grasp, True)
-                if res_path:
+                res_path, pathId, error_path = self.ps.directPath(q_pre, q_grasp, True) # Check that a collision free direct path is feasible
+                collide, _ = self.robot.compute_collisions(self._split_q(q_grasp, 'robot'), stop_at_first_collision=True) # if the path is of length 0, the collision wouldn't be checked
+                if not collide and res_path:
                     q_goals.append([q_pre, q_grasp])
                     self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
 
@@ -322,7 +323,8 @@ class Planner:
             res_place, q_place, error_place = cg.applyNodeConstraints(gripperFullname + ' grasps target/handle : support_place/gripper grasps target/handle_bottom', q)
             res_clear, q_clear, error_clear = cg.generateTargetConfig(gripperFullname +' < target/handle | 0-0:2-1_21', q_place, q_place)
             if(res_place and res_clear):
-                res_path, pathId, error_path = self.ps.directPath(q_place, q_clear, True)
+                res_path, pathId, error_path = self.ps.directPath(q_place, q_clear, True) # Check that a collision free direct path is feasible
+                collide, _ = self.robot.compute_collisions(np.array(self._split_q(q_clear, 'robot')), stop_at_first_collision=True) # if the path is of length 0, the collision wouldn't be checked
                 if res_path:
                     q_goals.append([q_place, q_clear])
                     self.ps.erasePath(pathId) # Erase the path as it's not needed anymore

@@ -26,8 +26,8 @@ path = planner.make_gripper_approach(robot.right_gripper_name, pose, approach_di
 # Start the commanders
 commander_left.start_fwd()
 commander_right.start_fwd()
-# commander_left.start_trajecotry_cmd()
-# commander_right.start_trajecotry_cmd()
+# commander_left.start_trajectory_cmd()
+# commander_right.start_trajectory_cmd()
 
 # Exectute the trajectories using TSID
 pf = PathFollower(robot)

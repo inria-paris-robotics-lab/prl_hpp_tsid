@@ -7,7 +7,7 @@ from prl_hpp.tiago import planner
 
 # Get current pose
 robot, commander_left, commander_right, planner = planner()
-commander_right.start_trajecotry()
+commander_right.start_trajectory()
 
 q_curr = robot.get_meas_q()
 planner.v(q_curr)

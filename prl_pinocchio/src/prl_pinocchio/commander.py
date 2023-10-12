@@ -36,7 +36,7 @@ class Commander:
         self._traj_action_client = None
         self._fwd_pub_topic = None
 
-    def start_trajecotry(self):
+    def start_trajectory(self):
         """
         Start the commander for trajectory control.
 
@@ -49,7 +49,7 @@ class Commander:
                 rospy.loginfo("Waiting for action server "  + self._trajectory_action_name)
                 self._traj_action_client.wait_for_server(timeout=rospy.Duration.from_sec(10.0))
             else:
-                rospy.logwarn("No action server name provided. start_trajecotry() is skipped.")
+                rospy.logwarn("No action server name provided. start_trajectory() is skipped.")
 
     def start_fwd(self):
         """
@@ -86,8 +86,8 @@ class Commander:
             AssertionError: If the action client is not initialized.
         """
         if self._traj_action_client is None:
-            rospy.logerr("Action client not initialized. Did you call start_trajecotry() first.")
-            raise AssertionError("Action client not initialized. Did you call start_trajecotry() first.")
+            rospy.logerr("Action client not initialized. Did you call start_trajectory() first.")
+            raise AssertionError("Action client not initialized. Did you call start_trajectory() first.")
 
         for i in range(len(path.jointList)):
             if(self.robot.pin_robot_wrapper.model.names[i+1] != path.jointList[i]):
@@ -101,7 +101,7 @@ class Commander:
 
         # Check that the robot is close to the start configuration
         q_start = q_hpp_to_pin(path.corbaPath.call(0)[0])
-        assert self.robot.is_at_config(q_start, 1e-1), "The robot current configuration differs too much from the start configuration of the path"
+        assert self.robot.is_at_config(q_start, 1), "The robot current configuration differs too much from the start configuration of the path"
 
         # Create ROS message
         jointTraj = JointTrajectory(joint_names = self.jointsName)

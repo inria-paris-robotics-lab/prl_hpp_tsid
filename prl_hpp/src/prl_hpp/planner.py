@@ -126,7 +126,7 @@ class Planner:
         self.lockJointConstraints.extend(constraintNames)
         return constraintNames
 
-    def make_gripper_approach(self, gripperName, pose, approach_distance = 0.1, q_start = None, validate = True, do_not_plan = False):
+    def make_gripper_approach(self, gripperName, pose, approach_distance = 0.1, q_start = None, validate = True, check_feasibility_only = False):
         """
         Find a path that leads to the gripper at a certain pose with a certain approach direction.
 
@@ -140,7 +140,7 @@ class Planner:
             approach_distance (float): Distance from which the gripper should make a quasi-straight to reach the goal pose.
             q_start (foat[]): The initial configuration of the robot. (If unspecified, the initial configuration is set to the current one.)
             validate (bool): If true, will check if the constraint graph generated is valid.
-            do_not_plan (bool): If true, will not plan, but will generate the constraint graph with goal configurations etc. (useful to check if a goal pose is 'do-able'. Exception will be thrown if not)
+            check_feasibility_only (bool): If true, will not plan, but will generate the constraint graph with goal configurations etc. (useful to check if a goal pose is 'do-able'. Exception will be thrown if not)
         Returns
         -------
             path (Path): the path found
@@ -175,21 +175,23 @@ class Planner:
 
         # Generate pair goal configuration (pre-graps, grasp)
         q_goals = []
-        for _ in range(100):
+        for _ in range(1000 // (5 if check_feasibility_only else 1)): # Generate less goal pose when checking for feasibility
             q = self.hpp_robot.shootRandomConfig()
             res_pre, q_pre, error_pre = cg.generateTargetConfig(gripperFullname + ' > target/handle | f_01', q_init, q)
             res_grasp, q_grasp, error_grasp = cg.generateTargetConfig(gripperFullname + ' > target/handle | f_12', q_pre, q_pre)
             if(res_pre and res_grasp):
                 res_path, pathId, error_path = self.ps.directPath(q_pre, q_grasp, True) # Check that a collision free direct path is feasible
+                self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
                 collide, _ = self.robot.compute_collisions(self._split_q(q_grasp, 'robot'), stop_at_first_collision=True) # if the path is of length 0, the collision wouldn't be checked
                 if not collide and res_path:
                     q_goals.append([q_pre, q_grasp])
-                self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
+                    if check_feasibility_only: # No need to generate multiple goal poses when checking for feasibility
+                        break
 
         assert len(q_goals) > 0, "No goal configuration found"
 
         # Check if should plan or not
-        if do_not_plan:
+        if check_feasibility_only:
             return
 
         # Prepare solving in-state
@@ -323,18 +325,19 @@ class Planner:
 
         # Generate pair goal configuration (pre-graps, grasp)
         q_goals = []
-        for _ in range(100):
+        for _ in range(1000):
             q = self.hpp_robot.shootRandomConfig()
             res_place, q_place, error_place = cg.applyNodeConstraints(gripperFullname + ' grasps target/handle : support_place/gripper grasps target/handle_bottom', q)
             res_clear, q_clear, error_clear = cg.generateTargetConfig(gripperFullname +' < target/handle | 0-0:2-1_21', q_place, q_place)
             if(res_place and res_clear):
                 res_path, pathId, error_path = self.ps.directPath(q_place, q_clear, True) # Check that a collision free direct path is feasible
+                self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
                 collide, _ = self.robot.compute_collisions(self._split_q(q_clear, 'robot'), stop_at_first_collision=True) # if the path is of length 0, the collision wouldn't be checked
-                if res_path:
+                if not collide and res_path:
                     q_goals.append([q_place, q_clear])
                     self.ps.addGoalConfig(q_place)
-                self.ps.erasePath(pathId) # Erase the path as it's not needed anymore
         assert len(q_goals) > 0, "No goal configuration found"
+
         # Solve the problem
         success = self._safe_solve()
         if not success:

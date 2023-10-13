@@ -66,15 +66,21 @@ class Planner:
         # User defined locked joint constraint (re-used for every graph)
         self.lockJointConstraints = []
 
-    def set_planning_timeout(self, timeout):
+    def set_planning_timeout(self, timeout, stopWhenProblemIsSolved = True):
         """
-        Set the maximum duration the planner has to find a solution
+        Set the maximum duration the planner has to find a solution.
 
         Parameters
         ----------
             timeout (float): Timeout duration (in s.)
+
+        Optionnals parameters:
+        ----------------------
+            stopWhenProblemIsSolved (bool): If set to True, the planner stop as soon as a path is found. If set to False, continues up to the timeout anyway.
         """
         self.ps.setTimeOutPathPlanning(timeout)
+        self.stopWhenProblemIsSolved = stopWhenProblemIsSolved # Keep this value as it cannot be read from ps
+        # self.ps.stopWhenProblemIsSolved(stopWhenProblemIsSolved)
 
     def lock_joints(self, jointNames, jointValues = None, constraintNames = None, lockName = "locked_joints"):
         """
@@ -190,9 +196,8 @@ class Planner:
         instatePlanner = InStatePlanner (self.ps)
         instatePlanner.setEdge(cg, "Loop | f")
         instatePlanner.optimizerTypes = [ "RandomShortcut" ]
-        # # Don't set any timeout so the planner stops as soon as it finds a solution
-        # instatePlanner.maxIterPathPlanning = 600
-        # instatePlanner.timeOutPathPlanning = self.ps.getTimeOutPathPlanning()
+        instatePlanner.timeOutPathPlanning = self.ps.getTimeOutPathPlanning()
+        instatePlanner.stopWhenProblemIsSolved = self.stopWhenProblemIsSolved
 
         # Solve the problem
         path = instatePlanner.computePath(q_init, [q_pre for q_pre, q_grasp in q_goals], resetRoadmap=True)

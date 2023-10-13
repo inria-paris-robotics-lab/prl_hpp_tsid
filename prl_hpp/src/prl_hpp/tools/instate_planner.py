@@ -11,6 +11,7 @@ class InStatePlanner:
         self.optimizerTypes = []
         self.maxIterPathPlanning = None
         self.timeOutPathPlanning = None
+        self.stopWhenPathIsSolved = None
 
         self.manipulationProblem = wd(self.ps.hppcorba.problem.getProblem())
         self.crobot = self.manipulationProblem.robot()
@@ -60,6 +61,8 @@ class InStatePlanner:
             self.planner.maxIterations(self.maxIterPathPlanning)
         if self.timeOutPathPlanning:
             self.planner.timeOut(self.timeOutPathPlanning)
+        if self.stopWhenPathIsSolved:
+            self.planner.stopWhenProblemIsSolved(self.stopWhenPathIsSolved)
         path = wd(self.planner.solve())
 
     def createEmptyRoadmap(self):
@@ -86,11 +89,8 @@ class InStatePlanner:
             self.planner.maxIterations(self.maxIterPathPlanning)
         if self.timeOutPathPlanning:
             self.planner.timeOut(self.timeOutPathPlanning)
-        if self.maxIterPathPlanning or self.timeOutPathPlanning:
-            self.planner.stopWhenProblemIsSolved(False)
-            print("InstatePlanner do not stop when problem is solved !")
-            print("timeOutPathPlanning", self.timeOutPathPlanning)
-            print("maxIterPathPlanning", self.maxIterPathPlanning)
+        if self.stopWhenPathIsSolved:
+            self.planner.stopWhenProblemIsSolved(self.stopWhenPathIsSolved)
 
         path = wd(self.planner.solve())
         for optType in self.optimizerTypes:

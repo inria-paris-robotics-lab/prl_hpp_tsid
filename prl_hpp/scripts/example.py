@@ -9,6 +9,7 @@ planner.lock_grippers()
 planner.lock_right_arm()
 planner.set_velocity_limit(0.25)
 planner.set_acceleration_limit(0.25)
+planner.set_collision_margin(0.05)
 
 commander_left_arm.start_trajectory()
 

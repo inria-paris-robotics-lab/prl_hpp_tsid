@@ -1,4 +1,4 @@
-from hpp.corbaserver.manipulation import ProblemSolver, Rule, Constraints, ConstraintGraph, ConstraintGraphFactory, Client
+from hpp.corbaserver.manipulation import ProblemSolver, Rule, Constraints, ConstraintGraph, ConstraintGraphFactory, Client, SecurityMargins
 from hpp.gepetto.manipulation import ViewerFactory
 from hpp.gepetto import PathPlayer
 from hpp.corbaserver import loadServerPlugin
@@ -63,6 +63,10 @@ class Planner:
         self.velocity_scale = 1.0
         self.acceleration_scale = 1.0
 
+        # Collision margin
+        self._collision_margin = 0 #m
+        self._collision_margin_exclusion = [] # Don't apply safety margins on those pairs
+
         # User defined locked joint constraint (re-used for every graph)
         self.lockJointConstraints = []
 
@@ -81,6 +85,16 @@ class Planner:
         self.ps.setTimeOutPathPlanning(timeout)
         self.stopWhenProblemIsSolved = stopWhenProblemIsSolved # Keep this value as it cannot be read from ps
         # self.ps.stopWhenProblemIsSolved(stopWhenProblemIsSolved)
+
+    def set_collision_margin(self, distance):
+        """
+        Set the default minimum distance to enforce to prevent collision.
+
+        Parameters
+        ----------
+            distance (float): Minimum distance to enforce, for any collision, by default (in m.)
+        """
+        self._collision_margin = distance
 
     def lock_joints(self, jointNames, jointValues = None, constraintNames = None, lockName = "locked_joints"):
         """
@@ -515,8 +529,16 @@ class Planner:
                             # edge.resetNumericalConstraints() # TODO: To be removed ? (What if multiple grippers and objects : are we deleting too much ?)
                             cg.addConstraints(edge=edge_name, constraints = Constraints(numConstraints=[constrain_name]))
 
-        # Initialize
-        factory.generate ()
+        # Apply security margins
+        sm = SecurityMargins(self.ps, factory, ['robot', 'target', 'support_pick', 'support_place'])
+        sm.defaultMargin = self._collision_margin
+        sm.setSecurityMarginBetween('robot', 'robot', 0)
+        sm.apply()
+
+        # Exception where no margin should be applied (for example the first joint of an arm is closed to the base but never collide)
+        for e in factory.graph.edges.keys():
+            for joint_pair in self._collision_margin_exclusion:
+                factory.graph.setSecurityMarginForEdge(e, joint_pair[0], joint_pair[1], 0)
         cg.initialize()
 
         # Validate constraint graph

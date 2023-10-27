@@ -11,6 +11,15 @@ class UR5_Planner(Planner):
     def __init__(self, robot):
         Planner.__init__(self, robot)
 
+        # Disable some collision margin checks
+        # The two firsts joint of the UR are very close to the base, but the chances of a collision is very low. No margin is applied.
+        self._collision_margin_exclusion += [
+            ('robot/left_shoulder_lift_joint', 'universe'),
+            ('robot/left_shoulder_pan_joint', 'universe'),
+            ('robot/right_shoulder_lift_joint', 'universe'),
+            ('robot/right_shoulder_pan_joint', 'universe'),
+        ]
+
     def lock_grippers(self):
         return self.lock_joints(self.robot.gripper_joints)
 

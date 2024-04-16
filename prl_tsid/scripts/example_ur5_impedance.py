@@ -14,16 +14,11 @@ rospy.init_node("TSID_example", anonymous=True)
 rospy.loginfo("init_node")
 
 # Plan a trajectory using HPP
-from prl_hpp.ur5 import planner, robot, commander_left_arm, commander_right_arm
+from prl_pinocchio.ur5 import robot, commander_left_arm, commander_right_arm
 pi = 3.1415926
 
 # Start the commanders
 commander_left_arm.start_fwd()
-
-planner.lock_grippers()
-planner.lock_right_arm()
-planner.set_velocity_limit(0.25)
-planner.set_acceleration_limit(0.25)
 
 # Exectute the trajectories using TSID
 pf = PathFollower(robot)
@@ -183,12 +178,6 @@ def control_from_joy_cb(msg):
 if __name__=='__main__':
     force_debug_pub = rospy.Publisher("/left_ft_wrench_error", WrenchStamped, queue_size=0)
     vel_debug_pub = rospy.Publisher("/vel_debug", Twist, queue_size=0)
-
-    # start_pose = [[-0.6, 0.0, 0.05], [np.pi, 0, np.pi]]
-    # path = planner.make_gripper_approach(robot.left_gripper_name, start_pose, approach_distance = 0.01)
-
-    # input("Press enter to execute initial motion...")
-    # pf.execute_path(path, [commander_left_arm], 0.1, velocity_ctrl = True)
 
     # robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_0")
     # robot.remove_collision_pair("table_link_0", "left_gripper_finger_1_finger_tip_1")

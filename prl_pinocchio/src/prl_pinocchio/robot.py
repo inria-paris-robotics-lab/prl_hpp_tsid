@@ -7,6 +7,8 @@ import xml.etree.ElementTree as ET
 
 class Robot:
     """ User friendly Robot class that encapsulate the HppRobot and some ROS functionnality """
+    CONFIGURATION_TOLERANCE = 1e-3
+
     def __init__(self, robot_description_param_prefix):
         """
         Parameters
@@ -126,7 +128,7 @@ class Robot:
             for i, pos in enumerate(q):
                 pos = max(pos, self.pin_robot_wrapper.model.lowerPositionLimit[i])
                 pos = min(pos, self.pin_robot_wrapper.model.upperPositionLimit[i])
-                assert abs(pos - q[i]) < 1e-3 , "Joint [" + str(i) + "] " + self.pin_robot_wrapper.model.names[i+1] + " way out of bounds : " + str(pos) + " not in [" + str(self.pin_robot_wrapper.model.lowerPositionLimit[i]) + ", " + str(self.pin_robot_wrapper.model.upperPositionLimit[i]) + "]"
+                assert abs(pos - q[i]) < self.CONFIGURATION_TOLERANCE , "Joint [" + str(i) + "] " + self.pin_robot_wrapper.model.names[i+1] + " way out of bounds : " + str(q[i]) + " not in [" + str(self.pin_robot_wrapper.model.lowerPositionLimit[i]) + ", " + str(self.pin_robot_wrapper.model.upperPositionLimit[i]) + "]"
                 q[i] = pos
 
         return t, q, v, tau

@@ -258,8 +258,8 @@ class PathFollower:
         eeVelTask_name = "ee-vel-task-" + targetFrame
         eeVelTask = tsid.TaskSE3Equality(eeVelTask_name , self.tsid_robot, targetFrame)
         eeVelTask.useLocalFrame(True) # Represent jacobian in local frame
-        eeVelTask.setKp(       np.zeros(self.tsid_robot.na))
-        eeVelTask.setKd(Kd_ee * np.ones(self.tsid_robot.na))
+        eeVelTask.setKp(       np.zeros(6))
+        eeVelTask.setKd(Kd_ee * np.ones(6))
         self.eeVelSample = tsid.TrajectorySample(12, 6)
         self.formulation.addMotionTask(eeVelTask, w_ee, self.PRIO_COST, 0.0)
 

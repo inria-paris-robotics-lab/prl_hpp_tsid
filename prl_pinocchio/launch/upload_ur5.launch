@@ -9,5 +9,8 @@
         ceiling:=true
         "/>
 
-    <param name="prl_ur5_description/srdf" command="cat $(find prl_pinocchio)/urdf_srdf/prl_ur5_robot.srdf"/>
+    <param name="prl_ur5_description/srdf" command="
+        $(find xacro)/xacro '$(find prl_ur5_moveit_config)/config/standart_setup/prl_ur5_robot.srdf.xacro'
+        setup_name:=standart_setup
+        "/>
 </launch>

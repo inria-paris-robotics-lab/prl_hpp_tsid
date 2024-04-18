@@ -31,8 +31,10 @@ class ConfigurationConvertor:
             q_res.append(q_pin[pin_idxq])
         return q_res
 
-    def q_ros_to_pin(self, q_ros):
-        q_res = self.q_pin_neutral[:]
+    def q_ros_to_pin(self, q_ros, q_pin_ref = None):
+        if(q_pin_ref is None):
+            q_pin_ref = self.q_pin_neutral
+        q_res = q_pin_ref[:]
         for pin_idxq, ros_idxq in enumerate(self._idx_q_pin_to_ros):
             if(ros_idxq != -1):
                 q_res[pin_idxq] = q_ros[ros_idxq]
@@ -45,8 +47,10 @@ class ConfigurationConvertor:
             v_res.append(v_pin[pin_idxv])
         return v_res
 
-    def v_ros_to_pin(self, v_ros):
-        v_res = self.v_pin_neutral[:]
+    def v_ros_to_pin(self, v_ros, v_pin_ref = None):
+        if(v_pin_ref is None):
+            v_pin_ref = self.v_pin_neutral
+        v_res = v_pin_ref[:]
         for pin_idxv, ros_idxv in enumerate(self._idx_v_pin_to_ros):
             if(ros_idxv != -1):
                 v_res[pin_idxv] = v_ros[ros_idxv]

@@ -22,10 +22,6 @@ class PathFollower:
 
         self.formulation.computeProblemData(0.0, q0, v0)
 
-        ## Create a vizualizer
-        self.robot.create_visualizer()
-        self.robot.display(q0)
-
         # Joint torque bounds task
         self.w_actuationBounds = 1.0
         self.actuationBoundsTask = tsid.TaskActuationBounds("task-actuation-bounds", self.tsid_robot)
@@ -148,8 +144,6 @@ class PathFollower:
             v_dot = path.corbaPath.derivative(t, 2)
 
             q, v, v_dot = _rearrange_hpp_to_pin(q,v,v_dot)
-
-            self.robot.display(q)
 
             # Set posture reference
             postureSample.value(q)

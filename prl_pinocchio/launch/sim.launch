@@ -4,8 +4,10 @@
     <include file="$(find prl_ur5_run)/launch/sim.launch">
         <arg name="moveit" value="False"/>
         <arg name="velocity_control" value="True"/>
+        <arg name="ff_control" value="True"/>
+        <arg name="sensors" value="True"/>
     </include>
 
     <!-- Load URDF/SRDF -->
-    <include file="$(find prl_pinocchio)/launch/upload.launch"/>
+    <include file="$(find prl_pinocchio)/launch/upload_ur5.launch"/>
 </launch>

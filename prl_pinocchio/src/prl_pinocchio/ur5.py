@@ -32,7 +32,9 @@ class UR5_Robot(Robot):
 
         # Init joints group
         joints = self.get_joint_names()
-        self.gripper_joints = list(filter(lambda joint: joint.lower().find("gripper") != -1, joints))
+        self.right_gripper_joints = list(filter(lambda joint: joint.lower().find("right_gripper") != -1, joints))
+        self.left_gripper_joints = list(filter(lambda joint: joint.lower().find("left_gripper") != -1, joints))
+        self.gripper_joints = self.right_gripper_joints + self.left_gripper_joints
 
         # joints = set(joints) - set(self.gripper_joints) # Remove grippers joints from list
         self.left_arm_joints  = list(filter(lambda joint: joint.lower().find("left")  != -1 and joint.lower().find("gripper") == -1, joints))

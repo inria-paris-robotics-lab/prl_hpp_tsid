@@ -6,7 +6,7 @@
         setup:=standart_setup
         table:=true
         backwall:=true
-        ceiling:=true
+        leftwall:=true
         "/>
 
     <param name="prl_ur5_description/srdf" command="
